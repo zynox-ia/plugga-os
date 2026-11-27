@@ -222,11 +222,6 @@ a.linha:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2p
 .ficha dt { color: var(--ui-muted); font-size: 12px; }
 .ficha dd { margin: 0; overflow: hidden; font-size: 13px; text-overflow: ellipsis; }
 
-.comoChega { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
-.comoChega li { display: flex; gap: 10px; font-size: 12.5px; line-height: 18px; }
-.comoChega li > span:first-child { display: grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: 8px; background: var(--ui-subtle); color: var(--ui-muted); }
-.comoChega strong { display: block; font-weight: 500; }
-.comoChega small { color: var(--ui-muted); font-size: 12px; }
 
 .vazioDoProjeto { display: grid; justify-items: center; gap: 6px; padding: 24px 16px; text-align: center; }
 .vazioDoProjeto h2 { margin: 0; font-size: 16px; font-weight: 500; }
@@ -300,11 +295,7 @@ a.linha:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2p
 }
 .rodapeCompacto.rodapeCompacto { padding-top: 10px; }
 
-/* Ficha em modal: os cards de métrica se ajustam à largura do modal, não à da janela. */
-.metricasDaFicha { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
 .painelDaFicha { display: grid; gap: 16px; align-content: start; }
-.colunasDaFicha { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
-@media (max-width: 900px) { .colunasDaFicha { grid-template-columns: minmax(0, 1fr); } }
 .seloDaFicha { display: inline-flex; }
 @media (max-width: 720px) { .seloDaFicha { display: none; } }
 a.botaoLink { text-decoration: none; }
@@ -325,5 +316,21 @@ a.botaoLink { text-decoration: none; }
 .valorTravado > svg { flex: none; color: var(--ui-muted); }
 .dicaTravada { margin: -4px 0 0; }
 
-/* Na ficha, a legenda do orçamento cabe em duas linhas dentro do card de métrica. */
-.metricasDaFicha .barraOrcLegenda { white-space: normal; }
+
+/* v5: o resumo do projeto (ficha e página) em quatro cartões; o do orçamento com o dobro da largura,
+   para o valor, a barra e a legenda caberem numa linha. Abaixo de 1100 px o orçamento vai para a linha
+   de baixo, inteiro; no celular, Recebido e Gasto lado a lado e os outros dois em linhas inteiras. */
+.metricasDoProjeto.metricasDoProjeto { grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 2fr); }
+.metricasSemOrcamento.metricasSemOrcamento { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 1100px) {
+  .metricasDoProjeto.metricasDoProjeto { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .metricasDoProjeto.metricasDoProjeto > :nth-child(4) { grid-column: 1 / -1; }
+}
+@media (max-width: 720px) {
+  .metricasDoProjeto.metricasDoProjeto { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .metricasDoProjeto.metricasDoProjeto > :nth-child(3) { grid-column: 1 / -1; }
+  .metricasDoProjeto .barraOrcLegenda { white-space: normal; }
+}
+
+/* Próximos vencimentos: as linhas do bloco Vencimentos da Visão geral (financeiro-telas.module.css). */
+.vencimentos { gap: 6px; }

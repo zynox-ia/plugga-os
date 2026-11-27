@@ -12,6 +12,7 @@ import {
   comEntradasNovas,
   entradaNova,
   filtrarProjetos,
+  prazoDoVencimento,
   problemasDaNovaEntrada,
   hrefDosProjetos,
   lerFiltrosDosProjetos,
@@ -21,6 +22,7 @@ import {
   resumoDoProjeto,
   saidasPorCategoria,
   totalDaSaidaDoEstoque,
+  vencimentosDoProjeto,
   type Projeto,
 } from "../app/lib/prototipo-centro-de-custo.ts";
 import { clientesDeExemplo, projetoDeExemplo, PROJETOS_DE_EXEMPLO } from "../app/lib/prototipo-centro-de-custo-exemplos.ts";
@@ -256,5 +258,21 @@ describe("barra do orçamento no estilo do Estoque (PLU-362)", () => {
     assert.equal(condominio.legenda.replace(/\s/g, " "), "Orçamento R$ 310.000,00 · R$ 25.488,00 acima");
     assert.equal(barraDoOrcamento(resumoDoProjeto(projeto("eletroposto-ponto-certo")))!.tom, "atencao", "92% fica em atenção");
     assert.equal(barraDoOrcamento(resumoDoProjeto(projeto("operacao-manutencao-joao"))), null, "sem orçamento, sem barra");
+  });
+});
+
+describe("próximos vencimentos do projeto (PLU-362)", () => {
+  it("o que falta receber e pagar, em ordem de data, com o prazo no tom da Visão geral", () => {
+    const v = vencimentosDoProjeto(projeto("usina-solar-residencial-joao"), "2026-11-27");
+    assert.deepEqual(v.map((l) => [l.codigo, l.tipo, l.prazo]), [
+      ["CP-0263", "saida", "vence amanhã"],
+      ["CP-0247", "saida", "vence em 7 dias"],
+      ["CR-0172", "entrada", "vence em 21 dias"],
+    ]);
+    // A cobrança cancelada (emitida em dobro) não entra; a vencida vem primeiro, em perigo.
+    const clinica = vencimentosDoProjeto(projeto("gestao-de-energia-vida-plena"), "2026-11-27");
+    assert.deepEqual(clinica.map((l) => [l.codigo, l.prazo, l.tom]), [["CR-0152", "vencida há 12 dias", "perigo"]]);
+    assert.deepEqual(vencimentosDoProjeto(projeto("eletroposto-ponto-certo"), "2026-11-27"), [], "tudo recebido e pago");
+    assert.deepEqual([prazoDoVencimento(0), prazoDoVencimento(-1).prazo], [{ prazo: "vence hoje", tom: "alerta" }, "vencida há 1 dia"]);
   });
 });

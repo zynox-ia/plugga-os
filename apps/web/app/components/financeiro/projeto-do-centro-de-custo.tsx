@@ -1,6 +1,6 @@
-import { ArrowDownLeft, ArrowLeft, ArrowUpRight, Boxes, Building2, ClipboardList, FileText, Fuel, HardHat, Info, Landmark, Link2, Package, PanelsTopLeft, Scale, ShoppingCart, Sparkles, Truck, User, Users, Wallet, type LucideIcon } from "lucide-react";
+import { ArrowDownLeft, ArrowLeft, ArrowUpRight, Boxes, Building2, CalendarDays, ClipboardList, Clock, FileText, Fuel, HardHat, Info, Landmark, Package, PanelsTopLeft, Scale, ShoppingCart, Sparkles, TriangleAlert, Truck, User, Users, Wallet, type LucideIcon } from "lucide-react";
 import Link from "next/link";
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import {
   dataCurta,
@@ -13,12 +13,14 @@ import {
   saidasPorCategoria,
   totalDaSaidaDoEstoque,
   projetoVazio,
+  vencimentosDoProjeto,
   type CategoriaDaSaida,
   type CompraDoProjeto,
   type Entrada,
   type Projeto,
   type Saida,
 } from "../../lib/prototipo-centro-de-custo";
+import { hojeEmManaus } from "../../lib/compras";
 import estilosClientes from "../clientes/tela-clientes.module.css";
 import estilosPipelines from "../pipelines/tela-pipelines.module.css";
 import { CardDeMetrica } from "../suprimentos/card-de-metrica";
@@ -26,6 +28,7 @@ import { EmpresaComPonto } from "../suprimentos/empresa";
 import { Badge } from "../ui";
 import { BarraDoOrcamento, iconeDoProjeto, SeloDoPrototipo, TOM_DA_SITUACAO } from "./centro-de-custo-partes";
 import styles from "./centro-de-custo.module.css";
+import telas from "./financeiro-telas.module.css";
 
 /**
  * As peças do centro de custo de um projeto (PLU-362), PROTÓTIPO: o resumo e as
@@ -95,21 +98,50 @@ function custoDaCompra(c: CompraDoProjeto, abre: TelasDeOrigem): ReactNode {
   return "ainda sem conta a pagar";
 }
 
-/** Os números do projeto em cards de métrica; `colunas` fixa a grade (a ficha em modal é mais estreita que a página). */
-export function ResumoDoProjeto({ projeto: p, naFicha = false }: { projeto: Projeto; naFicha?: boolean }) {
+/**
+ * Os números do projeto em quatro cards de métrica (v5, pedido do André): Recebido,
+ * Gasto, Resultado e Orçamento consumido, este com o dobro da largura para a barra.
+ * Gasto é o pago mais o material do estoque (o mesmo critério dos cards da lista),
+ * para Recebido − Gasto fechar com o Resultado; a linha pequena mostra a composição.
+ */
+export function ResumoDoProjeto({ projeto: p }: { projeto: Projeto }) {
   const r = resumoDoProjeto(p);
-  return <div className={`${styles.metricas} ${naFicha ? styles.metricasDaFicha : ""}`} role="group" aria-label={`Resumo do centro de custo de ${p.nome}`} style={{ "--colunas": r.orcamento ? 5 : 4 } as CSSProperties}>
+  const composicao = [`pago ${reais(r.pago)}`, r.material ? `material ${reais(r.material)}` : null, r.aPagar ? `+ ${reais(r.aPagar)} a pagar` : null].filter(Boolean).join(" · ");
+  return <div className={`${styles.metricas} ${styles.metricasDoProjeto} ${r.orcamento ? "" : styles.metricasSemOrcamento}`} role="group" aria-label={`Resumo do centro de custo de ${p.nome}`}>
     <CardDeMetrica rotulo="Recebido" valor={reais(r.recebido)} icone={<ArrowDownLeft />} nota={r.aReceber ? `+ ${reais(r.aReceber)} a receber` : "nada a receber"} />
-    <CardDeMetrica rotulo="Pago" valor={reais(r.pago)} icone={<ArrowUpRight />} nota={r.aPagar ? `+ ${reais(r.aPagar)} a pagar` : "nada a pagar"} />
-    <CardDeMetrica rotulo="Material do estoque" valor={reais(r.material)} icone={<Boxes />}
-      nota={p.material.length ? `${p.material.length === 1 ? "1 saída" : `${p.material.length} saídas`} de estoque, pelo custo` : "nenhuma saída de estoque"} />
+    <CardDeMetrica rotulo="Gasto" valor={reais(r.gasto)} icone={<ArrowUpRight />} nota={composicao} />
     <CardDeMetrica rotulo="Resultado" valor={<span className={r.resultado < 0 ? styles.negativo : undefined}>{reais(r.resultado)}</span>} icone={<Scale />}
-      nota={r.aReceber || r.aPagar ? `previsto ${reais(r.resultadoPrevisto)}, com o que falta receber e pagar` : "recebido menos pago e material"} />
+      nota={r.aReceber || r.aPagar ? `recebido menos gasto · previsto ${reais(r.resultadoPrevisto)}` : "recebido menos gasto"} />
     {/* A mesma barra dos cards, no estilo da barra do Estoque. */}
     {r.orcamento ? <CardDeMetrica rotulo="Orçamento consumido" icone={<Wallet />}
       valor={<span className={r.orcamento.estourou ? styles.negativo : undefined}>{r.orcamento.percentual}%</span>}
       nota={<BarraDoOrcamento projeto={p} />} /> : null}
   </div>;
+}
+
+/** As linhas do que falta receber e pagar, no desenho do bloco Vencimentos da Visão geral do Financeiro. */
+export function ListaDeVencimentos({ projeto: p, hoje }: { projeto: Projeto; hoje: string }) {
+  const itens = vencimentosDoProjeto(p, hoje);
+  if (!itens.length) return <p className={telas.vazioGrupo}>Nada em aberto: tudo recebido e pago.</p>;
+  return <ul className={`${telas.visao} ${telas.lista} ${styles.vencimentos}`}>{itens.map((v) => {
+    const IconeDoTipo = v.tipo === "entrada" ? ArrowDownLeft : ArrowUpRight;
+    const perigo = v.tom === "perigo";
+    return <li key={v.id}><div className={`${telas.linha} ${perigo ? telas.linhaVencida : ""}`}>
+      <span className={`${telas.marca} ${perigo ? telas.marcaPerigo : ""}`} aria-hidden="true"><IconeDoTipo size={15} /></span>
+      <span className={telas.texto}><strong>{v.descricao}</strong><small>{v.nova ? "Nova" : v.codigo} · {v.tipo === "entrada" ? "a receber" : "a pagar"} · {dataCurta(v.vencimento)}</small></span>
+      <span className={telas.lado}>
+        <strong>{v.tipo === "entrada" ? "+" : "−"} {reais(v.valor)}</strong>
+        <span className={`${telas.selo} ${perigo ? telas.seloPerigo : v.tom === "alerta" ? telas.seloAlerta : telas.seloNeutro}`}>{perigo ? <TriangleAlert size={12} aria-hidden="true" /> : <Clock size={12} aria-hidden="true" />}{v.prazo}</span>
+      </span>
+    </div></li>;
+  })}</ul>;
+}
+
+/** Os próximos vencimentos do projeto em bloco, na página inteira. */
+export function VencimentosDoProjeto({ projeto: p, hoje }: { projeto: Projeto; hoje: string }) {
+  return <Bloco titulo="Próximos vencimentos" icone={<CalendarDays size={16} aria-hidden="true" />} sub="O que falta receber e pagar, do mais urgente ao mais distante.">
+    <ListaDeVencimentos projeto={p} hoje={hoje} />
+  </Bloco>;
 }
 
 export function VazioDoProjeto({ acao }: { acao?: ReactNode }) {
@@ -191,45 +223,44 @@ export function ComprasDoProjeto({ projeto: p, abre }: { projeto: Projeto; abre:
   </Bloco>;
 }
 
-export function CadastroDoProjeto({ projeto: p, abre }: { projeto: Projeto; abre: TelasDeOrigem }) {
+/** Os dados do cadastro do projeto; `className` escolhe a grade (a da ficha em modal ou a da página). */
+export function DadosDoProjeto({ projeto: p, abre, className }: { projeto: Projeto; abre: TelasDeOrigem; className: string | undefined }) {
   const r = resumoDoProjeto(p);
-  return <Bloco titulo="Ficha do projeto" icone={<ClipboardList size={16} aria-hidden="true" />} sub={abre.projetos ? <>Cadastro em <Link href={ROTA_DA_ORIGEM.projetos.href} className={styles.origem}>Projetos, na Engenharia</Link>.</> : "Cadastro em Projetos, na Engenharia."}>
-    <dl className={styles.ficha}>
-      <div><dt>Cliente</dt><dd>{abre.clientes ? <Link href={ROTA_DA_ORIGEM.clientes.href} className={styles.origem} title="Protótipo: abre Clientes. No sistema real, abre a ficha do cliente.">{p.cliente.nome}</Link> : p.cliente.nome}</dd></div>
-      <div><dt>Empresa</dt><dd><EmpresaComPonto empresa={p.empresa} /></dd></div>
-      <div><dt>Tipo</dt><dd>{ROTULO_DA_CLASSE[p.classe]} · {p.tipo}</dd></div>
-      <div><dt>Situação</dt><dd>{ROTULO_DA_SITUACAO[p.situacao]}</dd></div>
-      <div><dt>Responsável</dt><dd>{p.responsavel ?? "—"}</dd></div>
-      <div><dt>Início</dt><dd>{p.inicio ? dataCurta(p.inicio) : "—"}</dd></div>
-      <div><dt>Orçamento</dt><dd>{p.orcamento ? reais(p.orcamento) : "Sem orçamento"}</dd></div>
-      <div><dt>Resultado previsto</dt><dd className={r.resultadoPrevisto < 0 ? styles.negativo : undefined}>{reais(r.resultadoPrevisto)}</dd></div>
-    </dl>
-  </Bloco>;
+  return <dl className={className}>
+    <div><dt>Cliente</dt><dd>{abre.clientes ? <Link href={ROTA_DA_ORIGEM.clientes.href} className={styles.origem} title="Protótipo: abre Clientes. No sistema real, abre a ficha do cliente.">{p.cliente.nome}</Link> : p.cliente.nome}</dd></div>
+    <div><dt>Empresa</dt><dd><EmpresaComPonto empresa={p.empresa} /></dd></div>
+    <div><dt>Tipo</dt><dd>{ROTULO_DA_CLASSE[p.classe]} · {p.tipo}</dd></div>
+    <div><dt>Situação</dt><dd>{ROTULO_DA_SITUACAO[p.situacao]}</dd></div>
+    <div><dt>Responsável</dt><dd>{p.responsavel ?? "—"}</dd></div>
+    <div><dt>Início</dt><dd>{p.inicio ? dataCurta(p.inicio) : "—"}</dd></div>
+    <div><dt>Orçamento</dt><dd>{p.orcamento ? reais(p.orcamento) : "Sem orçamento"}</dd></div>
+    <div><dt>Resultado previsto</dt><dd className={r.resultadoPrevisto < 0 ? styles.negativo : undefined}>{reais(r.resultadoPrevisto)}</dd></div>
+  </dl>;
 }
 
-export function ComoChegaAqui() {
-  return <Bloco titulo="Como as informações chegam aqui" icone={<Link2 size={16} aria-hidden="true" />} sub="O centro de custo junta o que já foi vinculado ao projeto nas origens.">
-    <ul className={styles.comoChega}>
-      <li><span aria-hidden="true"><ArrowDownLeft size={14} /></span><span><strong>Entradas e saídas</strong><small>Vinculadas ao projeto no próprio lançamento, em Lançamentos (mão de obra incluída). Nova entrada, aqui, é um atalho: cria a cobrança em Lançamentos já com o cliente e o projeto.</small></span></li>
-      <li><span aria-hidden="true"><ShoppingCart size={14} /></span><span><strong>Compras</strong><small>O pedido com destino a este projeto; a conta a pagar dele já nasce vinculada.</small></span></li>
-      <li><span aria-hidden="true"><Boxes size={14} /></span><span><strong>Material do estoque</strong><small>A saída registrada no Estoque para este projeto.</small></span></li>
-    </ul>
+export function CadastroDoProjeto({ projeto: p, abre }: { projeto: Projeto; abre: TelasDeOrigem }) {
+  return <Bloco titulo="Ficha do projeto" icone={<ClipboardList size={16} aria-hidden="true" />} sub={abre.projetos ? <>Cadastro em <Link href={ROTA_DA_ORIGEM.projetos.href} className={styles.origem}>Projetos, na Engenharia</Link>.</> : "Cadastro em Projetos, na Engenharia."}>
+    <DadosDoProjeto projeto={p} abre={abre} className={styles.ficha} />
   </Bloco>;
 }
 
 /** Os outros projetos do mesmo cliente; `hrefDe` diz para onde cada um leva (a ficha em modal ou a página). */
+export function ListaDeOutrosProjetos({ outros, hrefDe }: { outros: readonly Projeto[]; hrefDe: (id: string) => string }) {
+  return <ul className={styles.linhas}>{outros.map((o) => {
+    const ro = resumoDoProjeto(o);
+    const IconeDoOutro = iconeDoProjeto(o);
+    return <li key={o.id}><Link href={hrefDe(o.id)} scroll={false} className={styles.linha}>
+      <span className={styles.marca} aria-hidden="true"><IconeDoOutro size={15} /></span>
+      <span className={styles.texto}><strong>{o.nome}</strong><small>{o.tipo} · <EmpresaComPonto empresa={o.empresa} curto /> · {ROTULO_DA_SITUACAO[o.situacao]}</small></span>
+      <span className={styles.lado}><strong className={ro.resultado < 0 ? styles.negativo : undefined}>{reais(ro.resultado)}</strong><small>resultado</small></span>
+    </Link></li>;
+  })}</ul>;
+}
+
 export function OutrosProjetos({ projeto: p, outros, hrefDe }: { projeto: Projeto; outros: readonly Projeto[]; hrefDe: (id: string) => string }) {
   if (!outros.length) return null;
   return <Bloco titulo={`Outros projetos de ${p.cliente.nome}`} icone={<Users size={16} aria-hidden="true" />} sub="Cada projeto tem o seu centro de custo.">
-    <ul className={styles.linhas}>{outros.map((o) => {
-      const ro = resumoDoProjeto(o);
-      const IconeDoOutro = iconeDoProjeto(o);
-      return <li key={o.id}><Link href={hrefDe(o.id)} scroll={false} className={styles.linha}>
-        <span className={styles.marca} aria-hidden="true"><IconeDoOutro size={15} /></span>
-        <span className={styles.texto}><strong>{o.nome}</strong><small>{o.tipo} · <EmpresaComPonto empresa={o.empresa} curto /> · {ROTULO_DA_SITUACAO[o.situacao]}</small></span>
-        <span className={styles.lado}><strong className={ro.resultado < 0 ? styles.negativo : undefined}>{reais(ro.resultado)}</strong><small>resultado</small></span>
-      </Link></li>;
-    })}</ul>
+    <ListaDeOutrosProjetos outros={outros} hrefDe={hrefDe} />
   </Bloco>;
 }
 
@@ -287,7 +318,7 @@ export function ProjetoDoCentroDeCusto({ projeto: p, outros, abre, acao, aviso, 
 
       <aside className={styles.lateral} aria-label="Sobre o projeto">
         <CadastroDoProjeto projeto={p} abre={abre} />
-        <ComoChegaAqui />
+        <VencimentosDoProjeto projeto={p} hoje={hojeEmManaus()} />
         <OutrosProjetos projeto={p} outros={outros} hrefDe={hrefDe} />
         <p className={styles.nota}><Building2 size={13} aria-hidden="true" />Protótipo para avaliação: projetos, clientes, valores e códigos desta tela são de exemplo.</p>
       </aside>

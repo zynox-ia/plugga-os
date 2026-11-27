@@ -358,3 +358,45 @@ export function barraDoOrcamento(r: ResumoDoProjeto): BarraDoOrcamento | null {
   const rotulo = `${legenda}: ${reais(r.gasto)} já saiu${r.aPagar ? ` e ${reais(r.aPagar)} a pagar` : ""}`;
   return { saiu: pct(r.gasto), comprometido: pct(r.comprometido), limite: pct(valor), tom, legenda, rotulo };
 }
+
+// ---------------------------------------------------------------- próximos vencimentos do projeto
+
+export type VencimentoDoProjeto = {
+  id: string;
+  codigo: string;
+  descricao: string;
+  tipo: "entrada" | "saida";
+  valor: number;
+  vencimento: string;
+  /** Dias até o vencimento (negativo: vencida). */
+  dias: number;
+  prazo: string;
+  tom: "perigo" | "alerta" | "neutro";
+  nova?: true;
+};
+
+const diaUtc = (iso: string) => { const [a, m, d] = iso.split("-").map(Number) as [number, number, number]; return Date.UTC(a, m - 1, d); };
+
+/** "vence hoje", "vence amanhã", "vence em 7 dias", "vencida há 2 dias" (no feminino: a conta, a cobrança). */
+export function prazoDoVencimento(dias: number): { prazo: string; tom: VencimentoDoProjeto["tom"] } {
+  if (dias < 0) return { prazo: `vencida há ${-dias} ${dias === -1 ? "dia" : "dias"}`, tom: "perigo" };
+  if (dias === 0) return { prazo: "vence hoje", tom: "alerta" };
+  if (dias === 1) return { prazo: "vence amanhã", tom: "neutro" };
+  return { prazo: `vence em ${dias} dias`, tom: "neutro" };
+}
+
+/**
+ * O que falta receber e pagar no projeto, do vencimento mais antigo ao mais
+ * distante (as vencidas primeiro). Cancelado, recebido e pago não entram.
+ */
+export function vencimentosDoProjeto(p: Projeto, hoje: string): VencimentoDoProjeto[] {
+  const base = diaUtc(hoje);
+  const linha = (l: { id: string; codigo: string; descricao: string; valor: number; vencimento: string; nova?: true }, tipo: VencimentoDoProjeto["tipo"]): VencimentoDoProjeto => {
+    const dias = Math.round((diaUtc(l.vencimento) - base) / 86_400_000);
+    return { id: `${tipo}-${l.id}`, codigo: l.codigo, descricao: l.descricao, tipo, valor: l.valor, vencimento: l.vencimento, dias, ...prazoDoVencimento(dias), ...(l.nova ? { nova: true as const } : {}) };
+  };
+  return [
+    ...p.entradas.filter((e) => e.situacao === "a_receber").map((e) => linha(e, "entrada")),
+    ...p.saidas.filter((s) => s.situacao === "a_pagar").map((s) => linha(s, "saida")),
+  ].sort((a, b) => a.vencimento.localeCompare(b.vencimento) || a.codigo.localeCompare(b.codigo));
+}

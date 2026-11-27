@@ -4,10 +4,12 @@ import { ArrowDownLeft, ArrowUpRight, Boxes, ExternalLink, LayoutGrid, Plus, Sho
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 
+import { hojeEmManaus } from "../../lib/compras";
 import { hrefDoProjeto, projetoVazio, ROTULO_DA_CLASSE, ROTULO_DA_SITUACAO, type Projeto } from "../../lib/prototipo-centro-de-custo";
 import estilosFicha from "../compras/ficha-do-pedido.module.css";
 import { FecharModal, Modal } from "../modal";
 import detalhes from "../pipelines/detalhes-do-lead-modal.module.css";
+import visao from "../pipelines/resumo-do-lead.module.css";
 import { EmpresaComPonto } from "../suprimentos/empresa";
 import { Badge, Button } from "../ui";
 import { iconeDoProjeto, SeloDoPrototipo, TOM_DA_SITUACAO } from "./centro-de-custo-partes";
@@ -15,12 +17,12 @@ import styles from "./centro-de-custo.module.css";
 import fichaDoLancamento from "./ficha.module.css";
 import { NovaEntradaDoProjeto } from "./nova-entrada-do-projeto";
 import {
-  CadastroDoProjeto,
-  ComoChegaAqui,
   ComprasDoProjeto,
+  DadosDoProjeto,
   EntradasDoProjeto,
+  ListaDeOutrosProjetos,
+  ListaDeVencimentos,
   MaterialDoProjeto,
-  OutrosProjetos,
   ResumoDoProjeto,
   SaidasDoProjeto,
   VazioDoProjeto,
@@ -53,6 +55,7 @@ export function FichaDoProjeto({ projeto: p, outros, abre, hrefDe, aoFechar }: {
   useEffect(() => { if (!aviso) return; const t = setTimeout(() => setAviso(null), 8000); return () => clearTimeout(t); }, [aviso]);
 
   const vazio = projetoVazio(p);
+  const hoje = hojeEmManaus();
   const Icone = iconeDoProjeto(p);
   const abas: { id: Aba; titulo: string; curto: string; conta?: number; icone: LucideIcon }[] = [
     { id: "geral", titulo: "Visão geral", curto: "Geral", icone: LayoutGrid },
@@ -102,15 +105,23 @@ export function FichaDoProjeto({ projeto: p, outros, abre, hrefDe, aoFechar }: {
         </div>
         <section id={`${id}-painel`} role="tabpanel" aria-labelledby={`${id}-${aba}`} className={`${detalhes.conteudo} ${estilosFicha.painel} ${styles.painelDaFicha} plg-parte`}>
           {aviso ? <p role="status" className="aviso aviso--sucesso">{aviso}</p> : null}
-          {aba === "geral" ? <>
-            <ResumoDoProjeto projeto={p} naFicha />
+          {/* Visão geral no padrão da ficha do lançamento: seções com o título pequeno (resumo-do-lead, .secao h3) e os dados na grade. */}
+          {aba === "geral" ? <div className={visao.resumo}>
+            <ResumoDoProjeto projeto={p} />
             {vazio ? <VazioDoProjeto /> : null}
-            <div className={styles.colunasDaFicha}>
-              <CadastroDoProjeto projeto={p} abre={abre} />
-              <ComoChegaAqui />
-            </div>
-            <OutrosProjetos projeto={p} outros={outros} hrefDe={hrefDe} />
-          </> : null}
+            <section className={visao.secao} aria-labelledby={`${id}-dados`}>
+              <h3 id={`${id}-dados`}>Ficha do projeto</h3>
+              <DadosDoProjeto projeto={p} abre={abre} className={visao.grade} />
+            </section>
+            <section className={visao.secao} aria-labelledby={`${id}-vencimentos`}>
+              <h3 id={`${id}-vencimentos`}>Próximos vencimentos</h3>
+              <ListaDeVencimentos projeto={p} hoje={hoje} />
+            </section>
+            {outros.length ? <section className={visao.secao} aria-labelledby={`${id}-outros`}>
+              <h3 id={`${id}-outros`}>Outros projetos de {p.cliente.nome}</h3>
+              <ListaDeOutrosProjetos outros={outros} hrefDe={hrefDe} />
+            </section> : null}
+          </div> : null}
           {aba === "entradas" ? <EntradasDoProjeto projeto={p} abre={abre} acao={novaEntrada} /> : null}
           {aba === "saidas" ? <SaidasDoProjeto projeto={p} abre={abre} /> : null}
           {aba === "material" ? <MaterialDoProjeto projeto={p} abre={abre} /> : null}
