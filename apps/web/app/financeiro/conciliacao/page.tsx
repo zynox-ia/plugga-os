@@ -17,5 +17,6 @@ export default async function ConciliacaoPage({ searchParams }: { searchParams: 
   ]);
   if (!painel.ok) return <EstadoDaApi erro={painel.erro} eyebrow="Conciliação" />;
   return <ConciliacaoView filtros={filtros} painel={painel.dados} opcoes={opcoes.ok ? opcoes.dados : null} gerente={alcancaDepartamento(sessao.acesso, "financeiro", "gerente")}
-    buscaCliente={alcancaTela(sessao.acesso, "financeiro.receber")} abreLancamentos={podeAbrirPagina(sessao.acesso, "/financeiro/lancamentos")} />;
+    buscaCliente={alcancaTela(sessao.acesso, "financeiro.receber")}
+    acessoAosLancamentos={{ lancamentos: podeAbrirPagina(sessao.acesso, "/financeiro/lancamentos"), saidas: alcancaTela(sessao.acesso, "financeiro.pagar"), entradas: alcancaTela(sessao.acesso, "financeiro.receber") }} />;
 }

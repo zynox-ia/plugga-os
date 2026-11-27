@@ -255,10 +255,12 @@ export function corpoDaCriacao(tipo: "receita" | "despesa", c: CamposDaCriacao, 
  */
 export function efeitoDaCriacao(
   tipo: "receita" | "despesa", conciliar: boolean, valorDaLinha: string,
-  conta: Pick<ContaCorrente, "saldoInicial" | "saldoInicialEm"> | null, diaDaLinha: string,
+  conta: Pick<ContaCorrente, "saldoInicial" | "saldoInicialEm" | "ativa"> | null, diaDaLinha: string,
 ): string {
   if (conciliar) return `Nasce ${tipo === "receita" ? "recebida" : "paga"} no dia e na conta da linha, e já fica conciliada com ela.`;
   const inicio = `O valor é diferente do extrato (${valorEmReais(valorDaLinha.replace(/^-/, ""))}): ${tipo === "receita" ? "a receita nasce recebida" : "a conta nasce paga"} com o valor digitado`;
+  // O saldo da API só conta as contas ativas.
+  if (conta && !conta.ativa) return `${inicio}, mas a linha do extrato não é conciliada. A conta está inativa, então o saldo no Plugga OS não se calcula.`;
   const base = conta?.saldoInicial && conta.saldoInicialEm ? conta.saldoInicialEm : null;
   if (!base) return `${inicio}, mas a linha do extrato não é conciliada. A conta não tem saldo inicial, então o saldo no Plugga OS não se calcula.`;
   if (diaDaLinha <= base) return `${inicio}, mas a linha do extrato não é conciliada. O saldo no Plugga OS não muda: o dia da linha já está no saldo inicial da conta (${base.slice(8, 10)}/${base.slice(5, 7)}).`;
@@ -279,6 +281,18 @@ export function corpoDaTransferencia(c: { outraContaId: string; descricao: strin
 export function efeitoDaTransferencia(linha: Pick<MovimentoDoExtrato, "valor" | "dia">, contaDaLinha: string, outraConta: string): string {
   const [origem, destino] = debitoDa(linha) ? [contaDaLinha, outraConta] : [outraConta, contaDaLinha];
   return `${valorEmReais(absolutoDa(linha))} saem de ${origem} e entram em ${destino}, no dia ${linha.dia.slice(8, 10)}/${linha.dia.slice(5, 7)}. A perna desta linha fica conciliada; a de ${outraConta} espera o extrato daquela conta.`;
+}
+
+export type AcessoAosLancamentos = { lancamentos: boolean; saidas: boolean; entradas: boolean };
+
+/**
+ * O link "Abrir" do 409 (a linha já usada ou a cobrança repetida): a página de Lançamentos e o tipo
+ * do existente, senão a ficha volta 404. Sem o `tipo`, o código diz: CP/"· saída" é saída.
+ */
+export function abreOExistente(existente: { id: string; codigo: string; tipo?: "saida" | "entrada" }, acesso: AcessoAosLancamentos): boolean {
+  if (!acesso.lancamentos) return false;
+  const tipo = existente.tipo ?? (existente.codigo.startsWith("CP-") || existente.codigo.endsWith("· saída") ? "saida" : "entrada");
+  return tipo === "saida" ? acesso.saidas : acesso.entradas;
 }
 
 /** O aviso depois da transferência: as pernas se chamam "TR-0001 · saída/entrada", então o código vai uma vez. */

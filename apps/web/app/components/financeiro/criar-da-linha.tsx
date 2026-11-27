@@ -23,6 +23,8 @@ import {
   mensagemDaTransferencia,
   opcoesDeCriacao,
   valorDaLinhaParaDigitar,
+  abreOExistente,
+  type AcessoAosLancamentos,
   type AcessoDaCriacao,
   type CamposDaCriacao,
   type TipoDaCriacao,
@@ -54,12 +56,12 @@ export function outrasContasDaLinha(opcoes: OpcoesDoFinanceiro, movimento: Pick<
  * despesa ou a transferência entre contas da mesma empresa, no dia e na conta da linha. Com o
  * valor da linha, já concilia; com outro, o botão vira "Criar sem conciliar" e diz o efeito.
  */
-export function CriarDaLinha({ movimento, opcoes, acesso, abreLancamentos, aoFechar, aoCriar }: {
+export function CriarDaLinha({ movimento, opcoes, acesso, acessoAosLancamentos, aoFechar, aoCriar }: {
   movimento: MovimentoDoExtrato;
   opcoes: OpcoesDoFinanceiro;
   acesso: AcessoDaCriacao;
-  /** Quem abre a tela de Lançamentos: só então o 409 oferece o link para o existente. */
-  abreLancamentos: boolean;
+  /** Lançamentos e os tipos que a pessoa abre: só então o 409 oferece o link para o existente. */
+  acessoAosLancamentos: AcessoAosLancamentos;
   aoFechar: () => void;
   /** Depois de criar: a mensagem para a tela, que recarrega o painel. */
   aoCriar: (mensagem: string) => void;
@@ -80,7 +82,7 @@ export function CriarDaLinha({ movimento, opcoes, acesso, abreLancamentos, aoFec
   const [achados, setAchados] = useState<Cliente[] | null>(null);
   const [erros, setErros] = useState<Record<string, string>>({});
   const [mensagem, setMensagem] = useState<string | null>(null);
-  const [repetida, setRepetida] = useState<Repetida | null>(null);
+  const [repetida, setRepetida] = useState<(Repetida & { tipo?: "saida" | "entrada" }) | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [erroDaBusca, setErroDaBusca] = useState<string | null>(null);
   // Trava síncrona: o duplo clique (ou Enter repetido) não chega a mandar duas vezes.
@@ -114,7 +116,9 @@ export function CriarDaLinha({ movimento, opcoes, acesso, abreLancamentos, aoFec
       if (resposta.ok) return dados;
       const erro = lerErro(dados, "Não foi possível criar. Tente de novo.");
       setErros(erro.porCampo);
-      setRepetida(resposta.status === 409 ? cobrancaExistente(dados) : null);
+      const existente = resposta.status === 409 ? cobrancaExistente(dados) : null;
+      const tipoDoExistente = (dados as { existente?: { tipo?: unknown } } | null)?.existente?.tipo;
+      setRepetida(existente ? { ...existente, ...(tipoDoExistente === "saida" || tipoDoExistente === "entrada" ? { tipo: tipoDoExistente } : {}) } : null);
       setMensagem((dados as { mensagem?: string } | null)?.mensagem ?? erro.mensagem);
       return null;
     } catch {
@@ -165,7 +169,7 @@ export function CriarDaLinha({ movimento, opcoes, acesso, abreLancamentos, aoFec
     footer={<Button type="submit" form="form-criar-da-linha" variant={conciliar || transferencia ? "primary" : "secondary"} icon={transferencia ? <ArrowLeftRight size={16} /> : <Plus size={16} />} disabled={enviando}>{rotuloDoBotao}</Button>}>
     <form id="form-criar-da-linha" className="ui-dialog-form" onSubmit={(e) => void salvar(e)} noValidate>
       {mensagem ? <Alert tone="danger" title={`Erro: ${mensagem}`}>
-        {repetida && abreLancamentos ? <Link href={hrefDosLancamentos({}, repetida.id)}>Abrir {repetida.codigo}</Link> : null}
+        {repetida && abreOExistente(repetida, acessoAosLancamentos) ? <Link href={hrefDosLancamentos({}, repetida.id)}>Abrir {repetida.codigo}</Link> : null}
       </Alert> : null}
       {tipos.length > 1 ? <fieldset className={styles.tipoDaCriacao}>
         <legend>O que é esta linha</legend>

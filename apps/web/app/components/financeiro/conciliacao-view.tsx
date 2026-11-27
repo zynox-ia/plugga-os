@@ -24,7 +24,7 @@ import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "re
 
 import { enviar, lerErro } from "../../lib/clientes";
 import { hojeEmManaus, ROTULO_DA_EMPRESA, valorEmReais } from "../../lib/compras";
-import { correcaoDoPar, escopoDoSaldo, hrefDaConciliacao, motivoSemCriacao, notaDosSaldos, opcoesDeCriacao, periodoAceito, problemaDoMotivo, saldosDaConciliacao, semParDoResumo, type EscopoDoSaldo, type FiltrosDaConciliacao } from "../../lib/conciliacao";
+import { correcaoDoPar, escopoDoSaldo, hrefDaConciliacao, motivoSemCriacao, notaDosSaldos, opcoesDeCriacao, periodoAceito, problemaDoMotivo, saldosDaConciliacao, semParDoResumo, type AcessoAosLancamentos, type EscopoDoSaldo, type FiltrosDaConciliacao } from "../../lib/conciliacao";
 import { contasDaTela, detalheDaConta } from "../../lib/configuracoes-do-financeiro";
 import { hrefDosLancamentos } from "../../lib/financeiro";
 import { corpoDaCorrecao, valorEmDigitacao } from "../../lib/ficha-do-lancamento";
@@ -114,15 +114,15 @@ function quandoFoiLido(extratos: ExtratoImportado[], hoje: string): string {
 }
 
 /** Conciliação do extrato com os lançamentos pagos e recebidos (PLU-339). */
-export function ConciliacaoView({ filtros, painel, opcoes, gerente, buscaCliente, abreLancamentos }: {
+export function ConciliacaoView({ filtros, painel, opcoes, gerente, buscaCliente, acessoAosLancamentos }: {
   filtros: FiltrosDaConciliacao;
   painel: PainelDaConciliacao;
   opcoes: OpcoesDoFinanceiro | null;
   gerente: boolean;
   /** Contas a receber: a busca de cliente que a receita guiada pede. */
   buscaCliente: boolean;
-  /** Quem abre a tela de Lançamentos (o link para o lançamento existente). */
-  abreLancamentos: boolean;
+  /** Lançamentos e os tipos que a pessoa abre (o link para o lançamento existente). */
+  acessoAosLancamentos: AcessoAosLancamentos;
 }) {
   const router = useRouter();
   const [ocupado, setOcupado] = useState(false);
@@ -363,7 +363,7 @@ export function ConciliacaoView({ filtros, painel, opcoes, gerente, buscaCliente
 
     {emCorrecao && correcaoEmCurso ? <CorrigirNoPar par={emCorrecao} correcao={correcaoEmCurso} aoFechar={() => setCorrigirId(null)} aoCorrigido={(mensagem) => { setCorrigirId(null); setErro(null); setAviso(mensagem); router.refresh(); }} /> : null}
 
-    {emCriacao && opcoes ? <CriarDaLinha movimento={emCriacao} opcoes={opcoes} acesso={acessoDaCriacao} abreLancamentos={abreLancamentos} aoFechar={() => setCriarId(null)} aoCriar={(mensagem) => { setCriarId(null); setAviso(mensagem); router.refresh(); }} /> : null}
+    {emCriacao && opcoes ? <CriarDaLinha movimento={emCriacao} opcoes={opcoes} acesso={acessoDaCriacao} acessoAosLancamentos={acessoAosLancamentos} aoFechar={() => setCriarId(null)} aoCriar={(mensagem) => { setCriarId(null); setAviso(mensagem); router.refresh(); }} /> : null}
 
     {tarifaId ? <TarifaDialog movimentoId={tarifaId} opcoes={opcoes} ocupado={ocupado} aoFechar={() => setTarifaId(null)} aoCriar={(corpo) => void agir("/api/financeiro/conciliacao/tarifa", criarTarifaSchema, corpo, "Tarifa criada e conciliada.").then((dados) => { if (dados) setTarifaId(null); })} /> : null}
   </div>;

@@ -515,8 +515,8 @@ export class PrismaConciliacaoRepository {
     return movimento;
   }
 
-  /** O lançamento vivo que já nasceu desta linha, com o código para a tela abrir. */
-  private async criadoDaLinha(tx: Prisma.TransactionClient, movimentoId: string): Promise<{ id: string; codigo: string } | null> {
+  /** O lançamento vivo que já nasceu desta linha, com o código e o tipo para a tela abrir (ou não oferecer). */
+  private async criadoDaLinha(tx: Prisma.TransactionClient, movimentoId: string): Promise<{ id: string; codigo: string; tipo: "saida" | "entrada" } | null> {
     const [l] = await tx.$queryRaw<{ id: string; tipo: "saida" | "entrada"; numero: number; origem: string; numeroDaTransferencia: number | null }[]>`
       SELECT l.id::text AS id, l.tipo::text AS tipo, l.numero::int AS numero, l.origem::text AS origem, t.numero::int AS "numeroDaTransferencia"
       FROM public.lancamentos l LEFT JOIN public.transferencias t ON t.id = l.transferencia_id
@@ -524,7 +524,7 @@ export class PrismaConciliacaoRepository {
       LIMIT 1`;
     if (!l) return null;
     const transferencia = l.origem === "transferencia" && l.numeroDaTransferencia !== null;
-    return { id: l.id, codigo: transferencia ? codigoDoLancamento(l.tipo, l.numeroDaTransferencia!, "transferencia") : codigoDoLancamento(l.tipo, l.numero) };
+    return { id: l.id, tipo: l.tipo, codigo: transferencia ? codigoDoLancamento(l.tipo, l.numeroDaTransferencia!, "transferencia") : codigoDoLancamento(l.tipo, l.numero) };
   }
 
   /**

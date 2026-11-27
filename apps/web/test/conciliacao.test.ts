@@ -13,6 +13,7 @@ import {
   lerFiltrosDaConciliacao,
   mensagemDaTransferencia,
   motivoSemCriacao,
+  abreOExistente,
   notaDosSaldos,
   opcoesDeCriacao,
   periodoAceito,
@@ -143,7 +144,7 @@ test("a despesa guiada só exige o fornecedor; com outro valor, nasce paga sem c
 /** O Intl separa "R$" do número com espaço que não quebra. */
 const sp = (texto: string | null) => texto?.replace(/\u00a0/g, " ") ?? null;
 
-const comBase = (saldoInicialEm: string) => ({ saldoInicial: "1000.00", saldoInicialEm });
+const comBase = (saldoInicialEm: string, ativa = true) => ({ saldoInicial: "1000.00", saldoInicialEm, ativa });
 
 test("o efeito explica o que muda: criar e conciliar, ou criar sem conciliar", () => {
   assert.equal(sp(efeitoDaCriacao("receita", true, debito.valor, comBase("2026-11-01"), debito.dia)), "Nasce recebida no dia e na conta da linha, e já fica conciliada com ela.");
@@ -159,7 +160,7 @@ test("criar sem conciliar: o saldo no Plugga OS muda só se a linha cai depois d
       `O valor é diferente do extrato (R$ 1.250,00): a receita nasce recebida com o valor digitado, mas a linha do extrato não é conciliada. O saldo no Plugga OS não muda: o dia da linha já está no saldo inicial da conta (${base.slice(8, 10)}/${base.slice(5, 7)}).`);
   }
   // Conta sem saldo inicial: não há saldo calculado para mudar.
-  assert.equal(sp(efeitoDaCriacao("despesa", false, "-800.00", { saldoInicial: null, saldoInicialEm: null }, "2026-11-26")),
+  assert.equal(sp(efeitoDaCriacao("despesa", false, "-800.00", { saldoInicial: null, saldoInicialEm: null, ativa: true }, "2026-11-26")),
     "O valor é diferente do extrato (R$ 800,00): a conta nasce paga com o valor digitado, mas a linha do extrato não é conciliada. A conta não tem saldo inicial, então o saldo no Plugga OS não se calcula.");
 });
 
@@ -203,4 +204,23 @@ test("Corrigir compara com o valor liquidado do par: na cobrança recebida a men
 test("o aviso da transferência diz onde ficou cada perna, sem repetir o código", () => {
   assert.equal(mensagemDaTransferencia("TR-0001", true, "Sicoob · Plugga"), "TR-0001 criada: a saída, nesta conta, ficou conciliada com a linha; a entrada, na Sicoob · Plugga, espera o extrato daquela conta.");
   assert.equal(mensagemDaTransferencia("TR-0002", false, "Sicoob · Plugga"), "TR-0002 criada: a entrada, nesta conta, ficou conciliada com a linha; a saída, na Sicoob · Plugga, espera o extrato daquela conta.");
+});
+
+test("criar sem conciliar numa conta inativa: o saldo dela não se calcula", () => {
+  assert.equal(sp(efeitoDaCriacao("despesa", false, "-800.00", comBase("2026-11-01", false), "2026-11-26")),
+    "O valor é diferente do extrato (R$ 800,00): a conta nasce paga com o valor digitado, mas a linha do extrato não é conciliada. A conta está inativa, então o saldo no Plugga OS não se calcula.");
+});
+
+test("o link para o lançamento que já existe só aparece a quem abre aquele tipo", () => {
+  const pagar = { lancamentos: true, saidas: true, entradas: false };
+  const receber = { lancamentos: true, saidas: false, entradas: true };
+  assert.equal(abreOExistente({ id: ID, codigo: "CP-0042", tipo: "saida" }, pagar), true);
+  assert.equal(abreOExistente({ id: ID, codigo: "CP-0042", tipo: "saida" }, receber), false);
+  // Sem o tipo (a cobrança repetida), o código diz: CR é entrada; a perna diz o sentido.
+  assert.equal(abreOExistente({ id: ID, codigo: "CR-0008" }, receber), true);
+  assert.equal(abreOExistente({ id: ID, codigo: "CR-0008" }, pagar), false);
+  assert.equal(abreOExistente({ id: ID, codigo: "TR-0001 · saída" }, pagar), true);
+  assert.equal(abreOExistente({ id: ID, codigo: "TR-0001 · entrada" }, pagar), false);
+  // Sem a página de Lançamentos, nunca.
+  assert.equal(abreOExistente({ id: ID, codigo: "CP-0042", tipo: "saida" }, { ...pagar, lancamentos: false }), false);
 });
