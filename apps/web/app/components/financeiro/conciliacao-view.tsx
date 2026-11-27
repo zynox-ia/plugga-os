@@ -17,7 +17,7 @@ import {
   type OpcoesDoFinanceiro,
   type PainelDaConciliacao,
 } from "@plugga/shared";
-import { Building2, CalendarDays, Cloud, Landmark, Link2, Pencil, Plus, Receipt } from "lucide-react";
+import { Building2, Cloud, Landmark, Link2, Pencil, Plus, Receipt } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
@@ -33,6 +33,9 @@ import { validarCorpo, type EsquemaDeCorpo } from "../../lib/requisicao";
 import estilosClientes from "../clientes/tela-clientes.module.css";
 import estilosPipelines from "../pipelines/tela-pipelines.module.css";
 import { EmpresaComPonto, PontoDaEmpresa } from "../suprimentos/empresa";
+import { rotuloDoIntervalo } from "../../lib/periodo-livre";
+import { atalhosDeMes, escolhaDoPeriodo, LIMITE_DE_DIAS_DA_CONCILIACAO } from "../../lib/periodo-por-atalho";
+import { FiltroDePeriodo, type EscolhaDePeriodo } from "../filtro-de-periodo";
 import { FiltroComBusca } from "../suprimentos/menu-com-busca";
 import { Alert, Button, Dialog, SelectField, TextField, TextareaField } from "../ui";
 import { AcoesDaLinha } from "./acoes-da-linha";
@@ -61,30 +64,11 @@ function escopoDe(f: FiltrosDaConciliacao) {
   return { de: f.de, ate: f.ate, ...(f.empresa ? { empresa: f.empresa } : {}), ...(f.conta ? { contaCorrenteId: f.conta } : {}) };
 }
 
-function chaveDoMes(iso: string): string {
-  return iso.slice(0, 7);
-}
-
 function rotuloDoMes(chave: string, frase = false): string {
   const [ano, mes] = chave.split("-").map(Number) as [number, number];
   const nome = NOMES_DO_MES[mes - 1] ?? chave;
   const texto = `${nome} de ${ano}`;
   return frase ? texto.toLocaleLowerCase("pt-BR") : texto;
-}
-
-function fimDoMes(chave: string): string {
-  const [ano, mes] = chave.split("-").map(Number) as [number, number];
-  const dia = new Date(Date.UTC(ano, mes, 0)).getUTCDate();
-  return `${chave}-${String(dia).padStart(2, "0")}`;
-}
-
-function mesesRecentes(de: string): { value: string; label: string }[] {
-  const [ano, mes] = chaveDoMes(de).split("-").map(Number) as [number, number];
-  return Array.from({ length: 8 }, (_, i) => {
-    const data = new Date(Date.UTC(ano, mes - 1 - i, 1));
-    const chave = `${data.getUTCFullYear()}-${String(data.getUTCMonth() + 1).padStart(2, "0")}`;
-    return { value: chave, label: rotuloDoMes(chave) };
-  });
 }
 
 function diaBarra(iso: string): string {
@@ -175,7 +159,13 @@ export function ConciliacaoView({ filtros, painel, opcoes, gerente, buscaCliente
   }
 
   const hoje = hojeEmManaus();
-  const mes = chaveDoMes(filtros.de);
+  const atalhosDoPeriodo = atalhosDeMes(hoje, 8, (mes) => rotuloDoMes(mes));
+  const periodoEscolhido = escolhaDoPeriodo(filtros.de, filtros.ate, atalhosDoPeriodo);
+  const mudarPeriodo = (escolha: EscolhaDePeriodo) => {
+    // A Conciliação sempre tem período: sem escolha (Limpar), volta ao mês de hoje.
+    const alvo = escolha.intervalo ?? atalhosDoPeriodo.find((a) => a.value === escolha.atalho) ?? atalhosDoPeriodo[0]!;
+    ir({ ...filtros, de: alvo.de, ate: alvo.ate });
+  };
   const empresas = [{ value: "todas", label: "Todas as empresas", icon: <Building2 /> }, { value: "plugga", label: "Plugga", icon: <PontoDaEmpresa empresa="plugga" /> }, { value: "waze", label: "Waze Energia", icon: <PontoDaEmpresa empresa="waze" /> }];
   const escopoDoSaldoAtual = escopoDoSaldo(opcoes?.contasCorrentes ?? [], filtros);
   // A conta do filtro, mesmo inativa ou de outra empresa: o painel segue filtrado por ela, então o seletor a mostra.
@@ -185,11 +175,10 @@ export function ConciliacaoView({ filtros, painel, opcoes, gerente, buscaCliente
     value: conta.id, label: rotuloDaConta(conta), icon: <PontoDaEmpresa empresa={conta.empresa} />,
     description: conta === contaForaDaLista ? (conta.ativa ? "de outra empresa" : "inativa") : detalheDaConta(conta) || ROTULO_DA_EMPRESA[conta.empresa],
   }))];
-  const opcoesDeMes = mesesRecentes(filtros.de).map((item) => ({ ...item, icon: <CalendarDays /> }));
   const tarifas = painel.semLancamento.filter((movimento) => movimento.pareceTarifa);
   const total = painel.resumo.movimentos;
   const progresso = total ? Math.round((painel.resumo.conciliados / total) * 100) : 0;
-  const contexto = `${contaAtual ? rotuloDaConta(contaAtual) : filtros.conta ? "Conta não encontrada" : "Todas as contas"} · ${rotuloDoMes(mes, true)}`;
+  const contexto = `${contaAtual ? rotuloDaConta(contaAtual) : filtros.conta ? "Conta não encontrada" : "Todas as contas"} · ${periodoEscolhido.intervalo ? rotuloDoIntervalo(periodoEscolhido.intervalo) : rotuloDoMes(filtros.de.slice(0, 7), true)}`;
   const semPar = semParDoResumo(painel.resumo);
   const emCorrecao = painel.valorDiferente.find((par) => par.movimento.id === corrigirId);
   const correcaoEmCurso = emCorrecao ? correcaoDoPar(emCorrecao, gerente) : null;
@@ -212,7 +201,7 @@ export function ConciliacaoView({ filtros, painel, opcoes, gerente, buscaCliente
           <FiltroComBusca label="Empresa" icon={<Building2 />} semFiltro="todas" value={filtros.empresa ?? "todas"} onChange={mudarEmpresa} options={empresas} />
         </div>
         <div className={styles.filtroEmpresa}>
-          <FiltroComBusca label="Mês" icon={<CalendarDays />} value={mes} onChange={(valor) => ir({ ...filtros, de: `${valor}-01`, ate: fimDoMes(valor) })} options={opcoesDeMes} />
+          <FiltroDePeriodo atalhos={atalhosDoPeriodo} atalho={periodoEscolhido.atalho} intervalo={periodoEscolhido.intervalo} aoMudar={mudarPeriodo} semTodoOPeriodo maximoDeDias={LIMITE_DE_DIAS_DA_CONCILIACAO} />
         </div>
         {opcoes ? <EngrenagemDoFinanceiro opcoes={opcoes} /> : null}
       </div>
