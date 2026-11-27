@@ -20,6 +20,7 @@ const servico = {
   opcoes: vi.fn().mockResolvedValue({ obras: [] }),
   buscarClientes: vi.fn().mockResolvedValue({ itens: [] }),
   abrirPedido: vi.fn().mockResolvedValue({ pedidoId: ID, numero: 1 }),
+  pedidosParaEntrada: vi.fn().mockResolvedValue({ itens: [] }),
 };
 
 describe("estoque API (e2e)", () => {
@@ -55,6 +56,13 @@ describe("estoque API (e2e)", () => {
     await suprimentos(request(app.getHttpServer()).post("/suprimentos/estoque/movimentacoes")).send({ tipo: "ajuste", itemId: ID, saldoContado: "3" }).expect(400);
     expect(servico.registrarMovimentacao).not.toHaveBeenCalled();
     await suprimentos(request(app.getHttpServer()).post("/suprimentos/estoque/movimentacoes")).send({ tipo: "ajuste", itemId: ID, saldoContado: "3", observacao: "Contagem" }).expect(201);
+  });
+
+  it("pedidos para a entrada por compra: rota do Estoque, com o id validado", async () => {
+    await suprimentos(request(app.getHttpServer()).get(`/suprimentos/estoque/itens/${ID}/pedidos-para-entrada`)).expect(200);
+    expect(servico.pedidosParaEntrada).toHaveBeenCalledWith(ID);
+    await como("crm:membro")(request(app.getHttpServer()).get(`/suprimentos/estoque/itens/${ID}/pedidos-para-entrada`)).expect(403);
+    await suprimentos(request(app.getHttpServer()).get("/suprimentos/estoque/itens/nao-e-uuid/pedidos-para-entrada")).expect(400);
   });
 
   it("não há rota de exclusão de item nem de movimentação", async () => {

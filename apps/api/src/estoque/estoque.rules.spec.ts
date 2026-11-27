@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   D,
+  aceitaEntradaDoPedido,
   custoMedioDepoisDaEntrada,
+  faltaEntrar,
+  problemaDaEntradaDoPedido,
+  type PedidoDaEntrada,
   diaValido,
   origemOuDestino,
   planejarMovimento,
@@ -147,5 +151,30 @@ describe("código, semanas e textos", () => {
     const agora = new Date("2026-11-23T14:00:00Z");
     expect(diaValido("2026-11-23", agora)).toBe(true);
     expect(diaValido("2026-11-24", agora)).toBe(false);
+  });
+
+  describe("entrada por compra ligada ao pedido", () => {
+    const pedido = (dados: Partial<PedidoDaEntrada> = {}): PedidoDaEntrada => ({ numero: 7, cancelado: false, atendidoPeloEstoque: false, pedida: D(10), recebida: D(4), ...dados });
+
+    it("aceita até o que falta do item", () => {
+      expect(problemaDaEntradaDoPedido(pedido(), D(6), "m", 7)).toBeNull();
+      expect(problemaDaEntradaDoPedido(pedido(), D("6.001"), "m", 7)).toMatchObject({
+        campo: "quantidade", estado: true, mensagem: "Este pedido (PC-0007) já deu entrada de 4.000 m deste item, de 10.000 m pedidos.",
+      });
+    });
+
+    it("recusa pedido sem o item, cancelado ou atendido pelo estoque", () => {
+      expect(problemaDaEntradaDoPedido(null, D(1), "m", 12)).toMatchObject({ campo: "pedidoId", estado: false, mensagem: "O pedido PC-0012 não tem este item vinculado ao estoque." });
+      expect(problemaDaEntradaDoPedido(pedido({ cancelado: true }), D(1), "m", 7)).toMatchObject({ campo: "pedidoId", estado: true });
+      expect(problemaDaEntradaDoPedido(pedido({ atendidoPeloEstoque: true }), D(1), "m", 7)).toMatchObject({ campo: "pedidoId", estado: true });
+    });
+
+    it("só aparece na escolha o pedido que ainda aceita entrada", () => {
+      expect(aceitaEntradaDoPedido(pedido())).toBe(true);
+      expect(aceitaEntradaDoPedido(pedido({ recebida: D(10) }))).toBe(false);
+      expect(aceitaEntradaDoPedido(pedido({ cancelado: true }))).toBe(false);
+      expect(aceitaEntradaDoPedido(pedido({ atendidoPeloEstoque: true }))).toBe(false);
+      expect(faltaEntrar(pedido({ recebida: D(12) })).toFixed(3)).toBe("0.000");
+    });
   });
 });

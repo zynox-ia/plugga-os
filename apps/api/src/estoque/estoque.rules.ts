@@ -181,6 +181,54 @@ export function origemOuDestino(m: VinculoParaTexto): string {
   return pedido ? `${destino} · ${pedido}` : destino;
 }
 
+/** O que a entrada por compra precisa saber do pedido, para um item de estoque. */
+export type PedidoDaEntrada = {
+  numero: number;
+  cancelado: boolean;
+  atendidoPeloEstoque: boolean;
+  /** Soma das linhas do pedido vinculadas ao item. */
+  pedida: Prisma.Decimal;
+  /** Entradas de origem compra já ligadas ao pedido, deste item. */
+  recebida: Prisma.Decimal;
+};
+
+/** O que ainda falta entrar do item por este pedido (nunca negativo). */
+export function faltaEntrar(pedido: Pick<PedidoDaEntrada, "pedida" | "recebida">): Prisma.Decimal {
+  const falta = pedido.pedida.sub(pedido.recebida);
+  return falta.gt(0) ? falta : ZERO;
+}
+
+/**
+ * A entrada por compra ligada a um pedido: o pedido tem o item vinculado, não
+ * está cancelado nem foi atendido pelo estoque (aí o material sai da reserva,
+ * não entra por compra), e a soma das entradas não passa do que ele pediu do
+ * item. `pedido` nulo: o pedido não tem linha vinculada ao item.
+ */
+export function problemaDaEntradaDoPedido(
+  pedido: PedidoDaEntrada | null,
+  quantidade: Prisma.Decimal,
+  unidade: string,
+  numeroSemVinculo: number | null,
+): { mensagem: string; campo: "pedidoId" | "quantidade"; estado: boolean } | null {
+  const numero = numeroDoPedido(pedido?.numero ?? numeroSemVinculo ?? 0);
+  if (!pedido || pedido.pedida.lte(0)) return { mensagem: `O pedido ${numero} não tem este item vinculado ao estoque.`, campo: "pedidoId", estado: false };
+  if (pedido.cancelado) return { mensagem: `O pedido ${numero} está cancelado: não recebe entrada.`, campo: "pedidoId", estado: true };
+  if (pedido.atendidoPeloEstoque) return { mensagem: `O pedido ${numero} foi atendido pelo estoque: o material sai da reserva, não entra por compra.`, campo: "pedidoId", estado: true };
+  if (pedido.recebida.add(quantidade).gt(pedido.pedida)) {
+    return {
+      mensagem: `Este pedido (${numero}) já deu entrada de ${pedido.recebida.toFixed(3)} ${unidade} deste item, de ${pedido.pedida.toFixed(3)} ${unidade} pedidos.`,
+      campo: "quantidade",
+      estado: true,
+    };
+  }
+  return null;
+}
+
+/** Pedido que aparece na escolha da entrada por compra: aceita entrada e ainda falta receber. */
+export function aceitaEntradaDoPedido(pedido: PedidoDaEntrada): boolean {
+  return !pedido.cancelado && !pedido.atendidoPeloEstoque && faltaEntrar(pedido).gt(0);
+}
+
 /** O dia informado não pode ser futuro (em Manaus). */
 export function diaValido(dia: string, agora: Date): boolean {
   return dia <= diaEmManaus(agora);

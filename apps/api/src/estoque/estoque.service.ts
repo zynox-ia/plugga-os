@@ -9,6 +9,7 @@ import {
   movimentacaoSchema,
   opcoesDeEstoqueRespostaSchema,
   pedidoDeReposicaoAbertoSchema,
+  pedidosParaEntradaRespostaSchema,
   type AbrirPedidoDeReposicao,
   type BuscarClientesDeCompraQuery,
   type BuscarClientesDeCompraResposta,
@@ -22,6 +23,7 @@ import {
   type Movimentacao,
   type OpcoesDeEstoqueResposta,
   type PedidoDeReposicaoAberto,
+  type PedidosParaEntradaResposta,
   type RegistrarMovimentacao,
 } from "@plugga/shared";
 
@@ -77,6 +79,10 @@ export class EstoqueService {
 
   async opcoes(): Promise<OpcoesDeEstoqueResposta> {
     return opcoesDeEstoqueRespostaSchema.parse({ obras: await this.estoque.obras() });
+  }
+
+  async pedidosParaEntrada(id: string): Promise<PedidosParaEntradaResposta> {
+    return pedidosParaEntradaRespostaSchema.parse({ itens: await this.estoque.pedidosParaEntrada(id) });
   }
 
   async buscarClientes(query: BuscarClientesDeCompraQuery): Promise<BuscarClientesDeCompraResposta> {

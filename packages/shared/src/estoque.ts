@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { diaDoCalendario, obraDeCompraSchema, quantidadeString } from "./compras.js";
+import { diaDoCalendario, etapaDeCompraSchema, obraDeCompraSchema, quantidadeString } from "./compras.js";
 import { companyKeySchema } from "./organization.js";
 import { decimalString, isoDate, uuid } from "./primitivas.js";
 
@@ -415,6 +415,30 @@ export const vincularItensAoEstoqueSchema = z
 export type VincularItensAoEstoque = z.infer<typeof vincularItensAoEstoqueSchema>;
 
 /** A entrada no estoque do recebimento de uma aquisição é `entradaNoEstoque` na ação `confirmar_recebimento` (compras.ts). */
+
+/**
+ * Pedidos de compra que ainda podem receber entrada do item:
+ * `GET /suprimentos/estoque/itens/:id/pedidos-para-entrada`, para a entrada de
+ * origem "Compra" do registro de movimentação. Basta a tela de Estoque: vem só o
+ * mínimo do pedido (número, título, etapa e as quantidades deste item), não as
+ * demais linhas. Ficam de fora o pedido cancelado, o atendido pelo estoque (o
+ * material sai da reserva, não entra por compra) e o que já recebeu tudo.
+ */
+export const pedidoParaEntradaSchema = z.object({
+  id: uuid,
+  numero: z.number().int().positive(),
+  titulo: z.string(),
+  etapa: etapaDeCompraSchema,
+  /** Soma das linhas do pedido vinculadas ao item. */
+  pedida: z.string(),
+  /** Entradas de origem compra já ligadas ao pedido, deste item (manuais e a do recebimento). */
+  recebida: z.string(),
+  /** pedida − recebida, sempre > 0 aqui. */
+  falta: z.string(),
+});
+export type PedidoParaEntrada = z.infer<typeof pedidoParaEntradaSchema>;
+export const pedidosParaEntradaRespostaSchema = z.object({ itens: z.array(pedidoParaEntradaSchema) });
+export type PedidosParaEntradaResposta = z.infer<typeof pedidosParaEntradaRespostaSchema>;
 
 /**
  * "Abrir pedido de compra" a partir de um item abaixo do mínimo:

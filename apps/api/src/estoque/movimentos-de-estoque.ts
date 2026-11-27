@@ -1,12 +1,12 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { Prisma, type ComprasDestino, type EstoqueDestinoSaida, type EstoqueOrigemEntrada } from "@prisma/client";
+import { Prisma, type ComprasDestino, type ComprasEtapa, type EstoqueDestinoSaida, type EstoqueOrigemEntrada } from "@prisma/client";
 import type { NomeDeEventoDoCatalogo } from "@plugga/shared";
 
 import { AuditAppender } from "../audit/audit-appender";
 import { EstadoInvalido, NaoEncontrado, RequisicaoInvalida } from "../common/errors/dominio";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { diaEmManaus, inicioDoDiaEmManaus } from "../compras/dias-uteis";
-import { D, planejarMovimento, type MovimentoPlanejado } from "./estoque.rules";
+import { D, planejarMovimento, problemaDaEntradaDoPedido, type MovimentoPlanejado, type PedidoDaEntrada } from "./estoque.rules";
 
 /** Origem ou destino gravado na movimentação. */
 export type VinculoDoMovimento = {
@@ -36,6 +36,23 @@ type Pedido = { id: string; companyId: string; destino: ComprasDestino; obraId: 
 
 /** O dia de Manaus (AAAA-MM-DD) como o instante que a coluna `data` guarda: o início do dia em Manaus. */
 export const diaComoData = (dia: string) => inicioDoDiaEmManaus(dia);
+
+export type PedidoParaEntradaDoItem = PedidoDaEntrada & { id: string; titulo: string; etapa: ComprasEtapa };
+
+/**
+ * Os pedidos da empresa do item com linha vinculada a ele, com o total pedido e
+ * o que já entrou por compra. Lê pela função restrita do banco
+ * (`plugga_security.pedidos_para_entrada_do_item`), que entrega só isso a quem
+ * pode registrar a movimentação, inclusive a quem só tem a tela de Estoque.
+ */
+export async function pedidosParaEntrada(tx: Prisma.TransactionClient, itemId: string, pedidoId: string | null): Promise<PedidoParaEntradaDoItem[]> {
+  const linhas = await tx.$queryRaw<{ id: string; numero: number; titulo: string; etapa: ComprasEtapa; cancelado: boolean; atendido_pelo_estoque: boolean; pedida: Prisma.Decimal; recebida: Prisma.Decimal }[]>`
+    SELECT id, numero, titulo, etapa, cancelado, atendido_pelo_estoque, pedida, recebida
+    FROM plugga_security.pedidos_para_entrada_do_item(${itemId}::uuid, ${pedidoId}::uuid)`;
+  return linhas.map((l) => ({
+    id: l.id, numero: l.numero, titulo: l.titulo, etapa: l.etapa, cancelado: l.cancelado, atendidoPeloEstoque: l.atendido_pelo_estoque, pedida: D(l.pedida), recebida: D(l.recebida),
+  }));
+}
 
 /**
  * O único caminho de escrita do saldo (PLU-332). Cada movimento trava o item
@@ -186,23 +203,21 @@ export class MovimentosDeEstoque {
    * de origem "compra" ligadas ao pedido, para este item (manuais e a do
    * recebimento), não passa da quantidade dos itens do pedido vinculados a ele.
    * Roda com o item já travado, então duas entradas simultâneas não passam juntas.
+   *
+   * As quantidades vêm de `pedidosParaEntrada`, não de `itens_de_pedido`: quem
+   * só tem a tela de Estoque não lê as linhas do pedido (PLU-332).
    */
   private async garantirLimiteDaEntradaDoPedido(tx: Prisma.TransactionClient, pedidoId: string, itemId: string, quantidade: Prisma.Decimal): Promise<void> {
-    const [pedido, item] = await Promise.all([
-      tx.pedidoDeCompra.findUnique({ where: { id: pedidoId }, select: { numero: true, itens: { where: { itemDeEstoqueId: itemId }, select: { quantidade: true } } } }),
+    const [linhas, cabecalho, item] = await Promise.all([
+      pedidosParaEntrada(tx, itemId, pedidoId),
+      tx.pedidoDeCompra.findUnique({ where: { id: pedidoId }, select: { numero: true } }),
       tx.itemDeEstoque.findUniqueOrThrow({ where: { id: itemId }, select: { unidade: true } }),
     ]);
-    if (!pedido) throw new RequisicaoInvalida("Pedido de compra não encontrado.", [{ campo: "pedidoId", problema: "Escolha um pedido de compra." }]);
-    const numero = `PC-${String(pedido.numero).padStart(4, "0")}`;
-    const pedida = pedido.itens.reduce((soma, i) => soma.add(i.quantidade), D(0));
-    if (pedida.isZero()) {
-      throw new RequisicaoInvalida(`O pedido ${numero} não tem este item vinculado ao estoque.`, [{ campo: "pedidoId", problema: "O pedido não tem este item." }]);
-    }
-    const ja = (await tx.movimentacaoDeEstoque.aggregate({ where: { pedidoId, itemId, tipo: "entrada", origem: "compra" }, _sum: { quantidade: true } }))._sum.quantidade ?? D(0);
-    if (D(ja).add(quantidade).gt(pedida)) {
-      const mensagem = `Este pedido (${numero}) já deu entrada de ${D(ja).toFixed(3)} ${item.unidade} deste item, de ${pedida.toFixed(3)} ${item.unidade} pedidos.`;
-      throw new EstadoInvalido(mensagem, [{ campo: "quantidade", problema: mensagem }]);
-    }
+    if (!cabecalho) throw new RequisicaoInvalida("Pedido de compra não encontrado.", [{ campo: "pedidoId", problema: "Escolha um pedido de compra." }]);
+    const problema = problemaDaEntradaDoPedido(linhas[0] ?? null, quantidade, item.unidade, cabecalho.numero);
+    if (!problema) return;
+    const detalhe = [{ campo: problema.campo, problema: problema.campo === "pedidoId" && !problema.estado ? "O pedido não tem este item." : problema.mensagem }];
+    throw problema.estado ? new EstadoInvalido(problema.mensagem, detalhe) : new RequisicaoInvalida(problema.mensagem, detalhe);
   }
 
   private destinoDoPedido(pedido: Pedido): VinculoDoMovimento {

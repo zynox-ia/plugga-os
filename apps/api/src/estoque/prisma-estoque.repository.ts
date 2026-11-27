@@ -15,6 +15,7 @@ import {
   type Movimentacao,
   type NomeDeEventoDoCatalogo,
   type ObraDeCompra,
+  type PedidoParaEntrada,
   type RegistrarMovimentacao,
 } from "@plugga/shared";
 
@@ -23,8 +24,8 @@ import { Conflito, EstadoInvalido, NaoEncontrado, RequisicaoInvalida } from "../
 import { diaEmManaus, fimDoDiaEmManaus, inicioDoDiaEmManaus } from "../compras/dias-uteis";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
-import { D, diaValido, origemOuDestino, proximoCodigo, saldoParaContrato, ultimas8Semanas } from "./estoque.rules";
-import { MovimentosDeEstoque, diaComoData } from "./movimentos-de-estoque";
+import { D, aceitaEntradaDoPedido, diaValido, faltaEntrar, origemOuDestino, proximoCodigo, saldoParaContrato, ultimas8Semanas } from "./estoque.rules";
+import { MovimentosDeEstoque, diaComoData, pedidosParaEntrada } from "./movimentos-de-estoque";
 
 const PESSOA = { select: { id: true, name: true } } as const;
 const INCLUDE_DA_MOVIMENTACAO = {
@@ -306,6 +307,19 @@ export class PrismaEstoqueRepository {
     const linhas = await this.prisma.comContexto((tx) => tx.$queryRaw<{ id: string; name: string }[]>`
       SELECT id, name FROM plugga_security.clientes_para_compras(${busca}, NULL::uuid[])`);
     return linhas.map((l) => ({ id: l.id, nome: l.name }));
+  }
+
+  /** Pedidos que ainda aceitam entrada do item, para a origem "Compra" do registro de movimentação. */
+  async pedidosParaEntrada(itemId: string): Promise<PedidoParaEntrada[]> {
+    const linhas = await this.prisma.comContexto(async (tx) => {
+      const item = await tx.itemDeEstoque.findUnique({ where: { id: itemId }, select: { id: true } });
+      if (!item) throw new NaoEncontrado("Item de estoque não encontrado.");
+      return pedidosParaEntrada(tx, itemId, null);
+    });
+    return linhas.filter(aceitaEntradaDoPedido).map((p) => ({
+      id: p.id, numero: p.numero, titulo: p.titulo, etapa: p.etapa,
+      pedida: p.pedida.toFixed(3), recebida: p.recebida.toFixed(3), falta: faltaEntrar(p).toFixed(3),
+    }));
   }
 
   /** Para o "Abrir pedido de compra": empresa, nome, unidade e quanto falta para o mínimo. */

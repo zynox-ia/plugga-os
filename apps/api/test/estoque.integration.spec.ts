@@ -1,6 +1,7 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 
-import { acaoDoPedidoSchema, criarItemDeEstoqueSchema, criarPedidoDeCompraSchema, registrarMovimentacaoSchema } from "@plugga/shared";
+import { acaoDoPedidoSchema, criarItemDeEstoqueSchema, criarPedidoDeCompraSchema, registrarMovimentacaoSchema, type Acesso } from "@plugga/shared";
+import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { AuditAppender } from "../src/audit/audit-appender.js";
@@ -9,7 +10,9 @@ import { PrismaComprasRepository } from "../src/compras/prisma-compras.repositor
 import type { AuthPrincipal } from "../src/core/auth/auth.types.js";
 import { MovimentosDeEstoque } from "../src/estoque/movimentos-de-estoque.js";
 import { PrismaEstoqueRepository } from "../src/estoque/prisma-estoque.repository.js";
+import { contextoBanco } from "../src/prisma/contexto-banco.js";
 import { PrismaService } from "../src/prisma/prisma.service.js";
+import { assertSafeTestDatabaseUrl } from "./safe-test-environment";
 
 /**
  * Estoque (PLU-332) contra o Postgres de verdade: saldo acumulado igual à soma
@@ -32,11 +35,15 @@ describe.skipIf(!HABILITADO)("estoque: saldo, movimentações e reservas no Post
   const compras = new PrismaComprasRepository(prisma, auditoria, movimentos);
   const marca = `est-${randomUUID().slice(0, 8)}`;
   let principal: AuthPrincipal;
+  let sessao: string;
+  // A conexão é a do dono (sem RLS), mas o limite da entrada por compra lê pela
+  // função restrita do banco, que confere a tela da sessão: ela precisa existir.
+  const naSessao = <T>(fazer: () => Promise<T>) => contextoBanco.run({ sessionHash: sessao, agentHash: undefined }, fazer);
 
   const criarItem = (dados: Record<string, unknown> = {}) => estoque.criar(criarItemDeEstoqueSchema.parse({
     empresa: "plugga", codigo: `${marca}-${randomUUID().slice(0, 4)}`.toUpperCase(), nome: `${marca} item`, categoria: "material_eletrico", unidade: "m", estoqueMinimo: "10", ...dados,
   }), principal, AGORA);
-  const mover = (dados: unknown) => estoque.registrarMovimentacao(registrarMovimentacaoSchema.parse(dados), principal, AGORA);
+  const mover = (dados: unknown) => naSessao(() => estoque.registrarMovimentacao(registrarMovimentacaoSchema.parse(dados), principal, AGORA));
   const saldo = (id: string) => prisma.itemDeEstoque.findUniqueOrThrow({ where: { id }, select: { emEstoque: true, reservado: true, custoMedio: true } });
   const livro = async (id: string) => {
     const linhas = await prisma.movimentacaoDeEstoque.findMany({ where: { itemId: id }, select: { tipo: true, quantidade: true, reservaId: true } });
@@ -66,6 +73,8 @@ describe.skipIf(!HABILITADO)("estoque: saldo, movimentações e reservas no Post
     for (const id of ["plugga", "waze"]) await prisma.company.upsert({ where: { id }, create: { id, name: id }, update: {} });
     const pessoa = await prisma.user.create({ data: { email: `${marca}@teste.local`, name: `${marca} Pessoa`, platformRoles: { create: { roleId: admin.id } } } });
     principal = { id: pessoa.id, kind: "user", acesso: { plataforma: "admin", departamentos: [] } };
+    sessao = randomBytes(32).toString("hex");
+    await prisma.session.create({ data: { userId: pessoa.id, tokenHash: sessao, expiresAt: new Date(Date.now() + 3_600_000), absoluteExpiresAt: new Date(Date.now() + 7_200_000) } });
   }, PRAZO_MS);
 
   afterAll(async () => {
@@ -171,9 +180,9 @@ describe.skipIf(!HABILITADO)("estoque: saldo, movimentações e reservas no Post
       for (const acao of [{ acao: "selecionar_cotacao", cotacaoId: cotacao }, { acao: "enviar_para_aprovacao" }, { acao: "aprovar" }, { acao: "registrar_pagamento", forma: "pix" }]) {
         await compras.executarAcao(pedido, acaoDoPedidoSchema.parse(acao), principal, AGORA);
       }
-      await compras.executarAcao(pedido, acaoDoPedidoSchema.parse({
+      await naSessao(() => compras.executarAcao(pedido, acaoDoPedidoSchema.parse({
         acao: "confirmar_recebimento", recebidoEm: "2026-11-23", valorFaturado: "200.00", entradaNoEstoque: [{ itemDoPedidoId: itemDoPedido, quantidade: "10", custoUnitario: "20.00" }],
-      }), principal, AGORA);
+      }), principal, AGORA));
       const depois = await saldo(id);
       expect([depois.emEstoque.toFixed(3), depois.custoMedio?.toFixed(4)]).toEqual(["20.000", "15.0000"]);
       expect(await prisma.movimentacaoDeEstoque.findFirst({ where: { itemId: id, pedidoId: pedido }, select: { tipo: true, origem: true } })).toEqual({ tipo: "entrada", origem: "compra" });
@@ -207,5 +216,135 @@ describe.skipIf(!HABILITADO)("estoque: saldo, movimentações e reservas no Post
       empresa: "plugga", titulo: `${marca} pedido`, destino: "interno", prazoEntregaDesejado: "2026-12-10",
       itens: [{ descricao: "x", quantidade: "1", itemDeEstoqueId: daWaze }],
     }), principal, AGORA)).rejects.toBeInstanceOf(RequisicaoInvalida);
+  }, PRAZO_MS);
+});
+
+/**
+ * O mesmo Estoque no login da aplicação (sem ser dono, com RLS), com quem só
+ * tem a tela de Estoque. A auditoria de 27/11/2026 (S2 1) achou que esse perfil
+ * não registrava entrada ligada a pedido: o limite lia `itens_de_pedido`, que
+ * a política de leitura não abre para Estoque.
+ */
+describe.skipIf(!HABILITADO)("estoque: operador só com a tela de Estoque, no login da aplicação", () => {
+  const root = new PrismaClient();
+  const marca = `estrls_${randomBytes(6).toString("hex")}`;
+  const login = `${marca}_app`;
+  const pessoas = new Map<string, { id: string; hash: string; acesso: Acesso }>();
+  let app: PrismaService;
+  let estoque: PrismaEstoqueRepository;
+  let compras: PrismaComprasRepository;
+  let ambienteValidado = false;
+
+  const principal = (nome: string): AuthPrincipal => ({ id: pessoas.get(nome)!.id, kind: "user", acesso: pessoas.get(nome)!.acesso });
+  const como = <T>(nome: string, fazer: () => Promise<T>) => contextoBanco.run({ sessionHash: pessoas.get(nome)!.hash, agentHash: undefined }, fazer);
+  const criarItem = (dados: Record<string, unknown> = {}) => como("estoque", () => estoque.criar(criarItemDeEstoqueSchema.parse({
+    empresa: "plugga", codigo: `${marca}-${randomBytes(2).toString("hex")}`.toUpperCase().replace(/_/g, "-"), nome: `${marca} item`, categoria: "material_eletrico", unidade: "m", estoqueMinimo: "0", ...dados,
+  }), principal("estoque"), AGORA));
+  const entrada = (itemId: string, quantidade: string, pedidoId: string) => como("estoque", () => estoque.registrarMovimentacao(registrarMovimentacaoSchema.parse({
+    tipo: "entrada", itemId, quantidade, custoUnitario: "1.00", origem: { tipo: "compra", pedidoId },
+  }), principal("estoque"), AGORA));
+  const pedidoCom = (itens: { quantidade: string; itemDeEstoqueId?: string }[], empresa = "plugga") => como("compras", () => compras.criar(criarPedidoDeCompraSchema.parse({
+    empresa, titulo: `${marca} pedido`, destino: "interno", prazoEntregaDesejado: "2026-12-10",
+    itens: itens.map((i) => ({ descricao: "material", ...i })),
+  }), principal("compras"), AGORA));
+  const emEstoque = async (id: string) => (await root.itemDeEstoque.findUniqueOrThrow({ where: { id }, select: { emEstoque: true } })).emEstoque.toFixed(3);
+
+  beforeAll(async () => {
+    assertSafeTestDatabaseUrl(process.env.DATABASE_URL!, process.env.CI === "true", process.env.PLUGGA_TEST_DB_PORT);
+    ambienteValidado = true;
+    await root.$connect();
+    if (!/^estrls_[a-f0-9]+_app$/.test(login)) throw new Error("Login de fixture inválido");
+    const senha = randomBytes(32).toString("hex");
+    await root.$transaction(async (t) => {
+      await t.$executeRaw`SELECT set_config('plugga.test_role', ${login}, true)`;
+      await t.$executeRaw`SELECT set_config('plugga.test_password', ${senha}, true)`;
+      await t.$executeRawUnsafe(`DO $fixture$ BEGIN EXECUTE format('CREATE ROLE %I LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L', current_setting('plugga.test_role'), current_setting('plugga.test_password')); END $fixture$`);
+    });
+    await root.$executeRawUnsafe(`GRANT plugga_runtime TO "${login}"`);
+    const url = new URL(process.env.DATABASE_URL!);
+    url.username = login;
+    url.password = senha;
+    url.searchParams.set("connection_limit", "4");
+    app = new PrismaService({ datasources: { db: { url: url.toString() } } });
+    const auditoria = new AuditAppender();
+    const movimentos = new MovimentosDeEstoque(auditoria);
+    estoque = new PrismaEstoqueRepository(app, auditoria, movimentos);
+    compras = new PrismaComprasRepository(app, auditoria, movimentos);
+
+    for (const id of ["plugga", "waze"]) await root.company.upsert({ where: { id }, create: { id, name: id }, update: {} });
+    const perfis: Record<string, string[]> = { estoque: ["suprimentos.estoque"], compras: ["suprimentos.compras"] };
+    for (const [nome, telas] of Object.entries(perfis)) {
+      const pessoa = await root.user.create({ data: { name: `${marca} ${nome}`, email: `${marca}-${nome}@teste.local` } });
+      const hash = randomBytes(32).toString("hex");
+      await root.session.create({ data: { userId: pessoa.id, tokenHash: hash, expiresAt: new Date(Date.now() + 3_600_000), absoluteExpiresAt: new Date(Date.now() + 7_200_000) } });
+      await root.userDepartamento.create({ data: { userId: pessoa.id, departamento: "suprimentos", nivel: "membro", telas } });
+      pessoas.set(nome, { id: pessoa.id, hash, acesso: { plataforma: null, departamentos: [{ departamento: "suprimentos", nivel: "membro", telas }] } as Acesso });
+    }
+  }, PRAZO_MS);
+
+  afterAll(async () => {
+    await app?.$disconnect();
+    if (ambienteValidado) {
+      await root.$transaction(async (t) => {
+        await t.$executeRawUnsafe("SET LOCAL session_replication_role = replica");
+        const itens = (await t.itemDeEstoque.findMany({ where: { nome: { startsWith: marca } }, select: { id: true } })).map((i) => i.id);
+        const pedidos = (await t.pedidoDeCompra.findMany({ where: { titulo: { startsWith: marca } }, select: { id: true } })).map((p) => p.id);
+        await t.movimentacaoDeEstoque.deleteMany({ where: { OR: [{ itemId: { in: itens } }, { pedidoId: { in: pedidos } }] } });
+        await t.reservaDeEstoque.deleteMany({ where: { OR: [{ itemId: { in: itens } }, { pedidoId: { in: pedidos } }] } });
+        await t.pedidoDeCompra.deleteMany({ where: { id: { in: pedidos } } });
+        await t.itemDeEstoque.deleteMany({ where: { id: { in: itens } } });
+      });
+      await root.user.deleteMany({ where: { email: { startsWith: marca } } });
+      await root.$executeRawUnsafe(`DROP ROLE IF EXISTS "${login}"`);
+    }
+    await root.$disconnect();
+  }, PRAZO_MS);
+
+  it("registra a entrada ligada ao pedido e respeita o que o pedido pediu do item", async () => {
+    const item = await criarItem();
+    const pedido = await pedidoCom([{ quantidade: "6", itemDeEstoqueId: item }, { quantidade: "4", itemDeEstoqueId: item }]);
+    await entrada(item, "7", pedido);
+    await expect(entrada(item, "4", pedido)).rejects.toThrow(/já deu entrada de 7\.000 m deste item, de 10\.000 m pedidos/);
+    await entrada(item, "3", pedido);
+    expect(await emEstoque(item)).toBe("10.000");
+  }, PRAZO_MS);
+
+  it("lista só os pedidos que ainda aceitam entrada do item, com o mínimo do pedido", async () => {
+    const item = await criarItem({ saldoInicial: "50", custoUnitario: "1.00" });
+    const outroItem = await criarItem();
+    const aberto = await pedidoCom([{ quantidade: "6", itemDeEstoqueId: item }, { quantidade: "4", itemDeEstoqueId: item }, { quantidade: "9", itemDeEstoqueId: outroItem }, { quantidade: "2" }]);
+    const recebido = await pedidoCom([{ quantidade: "2", itemDeEstoqueId: item }]);
+    await entrada(item, "2", recebido);
+    const cancelado = await pedidoCom([{ quantidade: "3", itemDeEstoqueId: item }]);
+    await como("compras", () => compras.executarAcao(cancelado, acaoDoPedidoSchema.parse({ acao: "cancelar", motivo: "Desistiu" }), principal("compras"), AGORA));
+    const peloEstoque = await pedidoCom([{ quantidade: "1", itemDeEstoqueId: item }]);
+    for (const acao of [{ acao: "iniciar_analise" }, { acao: "decidir_estoque", origem: "estoque" }]) {
+      await como("compras", () => compras.executarAcao(peloEstoque, acaoDoPedidoSchema.parse(acao), principal("compras"), AGORA));
+    }
+    const semVinculo = await pedidoCom([{ quantidade: "5" }]);
+    await entrada(item, "1", aberto);
+
+    const lista = await como("estoque", () => estoque.pedidosParaEntrada(item));
+    expect(lista).toEqual([{ id: aberto, numero: expect.any(Number), titulo: `${marca} pedido`, etapa: "pedido_gerado", pedida: "10.000", recebida: "1.000", falta: "9.000" }]);
+
+    await expect(entrada(item, "1", cancelado)).rejects.toThrow(/está cancelado/);
+    await expect(entrada(item, "1", peloEstoque)).rejects.toThrow(/atendido pelo estoque/);
+    await expect(entrada(item, "1", semVinculo)).rejects.toBeInstanceOf(RequisicaoInvalida);
+    await expect(entrada(item, "1", recebido)).rejects.toThrow(/já deu entrada de 2\.000 m deste item, de 2\.000 m pedidos/);
+  }, PRAZO_MS);
+
+  it("continua sem ler as linhas do pedido nem a lista de Compras", async () => {
+    const item = await criarItem();
+    const pedido = await pedidoCom([{ quantidade: "3", itemDeEstoqueId: item }, { quantidade: "8" }]);
+    const linhas = await como("estoque", () => app.comContexto((tx) => tx.itemDePedido.findMany({ where: { pedidoId: pedido }, select: { id: true } })));
+    expect(linhas).toEqual([]);
+    // Quem não tem Estoque nem Compras não lê nada pela função.
+    const pessoa = await root.user.create({ data: { name: `${marca} crm`, email: `${marca}-crm@teste.local` } });
+    const hash = randomBytes(32).toString("hex");
+    await root.session.create({ data: { userId: pessoa.id, tokenHash: hash, expiresAt: new Date(Date.now() + 3_600_000), absoluteExpiresAt: new Date(Date.now() + 7_200_000) } });
+    await root.userDepartamento.create({ data: { userId: pessoa.id, departamento: "crm", nivel: "membro", telas: ["crm.clientes"] } });
+    const peloCrm = await contextoBanco.run({ sessionHash: hash, agentHash: undefined }, () => app.comContexto((tx) => tx.$queryRaw<unknown[]>`
+      SELECT id FROM plugga_security.pedidos_para_entrada_do_item(${item}::uuid, NULL::uuid)`));
+    expect(peloCrm).toEqual([]);
   }, PRAZO_MS);
 });

@@ -21,6 +21,7 @@ import {
   type Movimentacao,
   type OpcoesDeEstoqueResposta,
   type PedidoDeReposicaoAberto,
+  type PedidosParaEntradaResposta,
   type RegistrarMovimentacao,
 } from "@plugga/shared";
 
@@ -63,6 +64,12 @@ export class EstoqueController {
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   editar(@Param("id", ParseUUIDPipe) id: string, @Body(new ZodValidationPipe(editarItemDeEstoqueSchema)) input: EditarItemDeEstoque, @CurrentPrincipal() principal: AuthPrincipal): Promise<ItemDeEstoque> {
     return this.estoque.editar(id, input, principal);
+  }
+
+  /** Pedidos que ainda aceitam entrada do item (origem "Compra"): só o mínimo do pedido, com a tela de Estoque. */
+  @Get("itens/:id/pedidos-para-entrada")
+  pedidosParaEntrada(@Param("id", ParseUUIDPipe) id: string): Promise<PedidosParaEntradaResposta> {
+    return this.estoque.pedidosParaEntrada(id);
   }
 
   @Post("itens/:id/inativar")

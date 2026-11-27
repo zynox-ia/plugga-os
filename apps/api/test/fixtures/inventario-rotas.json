@@ -3664,6 +3664,20 @@
     ]
   },
   {
+    "metodo": "GET",
+    "caminho": "/suprimentos/estoque/itens/:id/pedidos-para-entrada",
+    "controller": "EstoqueController.pedidosParaEntrada",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.estoque",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
     "metodo": "POST",
     "caminho": "/suprimentos/estoque/itens/:id/reativar",
     "controller": "EstoqueController.reativar",
