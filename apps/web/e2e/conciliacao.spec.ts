@@ -116,7 +116,7 @@ test("importar o OFX, corrigir o valor diferente, conciliar e desfazer com motiv
   await expect(stat(faixa, "Sem par")).toContainText("0");
   await expect(stat(saldos, "Saldo no Plugga OS")).toHaveText("R$ 550,00");
   await expect(stat(saldos, "Saldo conciliado")).toHaveText("R$ 1.000,00");
-  await expect(stat(saldos, "Diferença líquida")).toHaveText(/^-s?R$s?450,00$/);
+  await expect(stat(saldos, "Diferença líquida")).toHaveText(/^-R\$\s450,00$/);
 
   const diferente = page.getByRole("region", { name: "Valor diferente" }).getByRole("listitem").filter({ hasText: memo });
   await expect(diferente.getByText("Diferença R$ 17,35 a menos no Plugga OS")).toBeVisible();
@@ -136,7 +136,7 @@ test("importar o OFX, corrigir o valor diferente, conciliar e desfazer com motiv
   await expect(stat(faixa, "Valor diferente")).toHaveText("0");
   await expect(stat(faixa, "Sugeridos")).toHaveText("1");
   await expect(stat(saldos, "Saldo no Plugga OS")).toHaveText("R$ 532,65");
-  await expect(stat(saldos, "Diferença líquida")).toHaveText(/^-s?R$s?467,35$/);
+  await expect(stat(saldos, "Diferença líquida")).toHaveText(/^-R\$\s467,35$/);
   const sugerido = page.getByRole("region", { name: "Sugeridos" }).getByRole("listitem").filter({ hasText: memo });
   await expect(sugerido.getByText("R$ 467,35")).toHaveCount(2);
   await sugerido.getByRole("button", { name: "Conciliar" }).click();
