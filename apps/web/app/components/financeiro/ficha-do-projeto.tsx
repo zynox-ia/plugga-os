@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDownLeft, ArrowUpRight, Boxes, ExternalLink, LayoutGrid, Plus, ShoppingCart, UserRound, X, type LucideIcon } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Boxes, LayoutGrid, Maximize2, Plus, ShoppingCart, UserRound, X, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 
@@ -14,7 +14,6 @@ import { EmpresaComPonto } from "../suprimentos/empresa";
 import { Badge, Button } from "../ui";
 import { iconeDoProjeto, SeloDoPrototipo, TOM_DA_SITUACAO } from "./centro-de-custo-partes";
 import styles from "./centro-de-custo.module.css";
-import fichaDoLancamento from "./ficha.module.css";
 import { NovaEntradaDoProjeto } from "./nova-entrada-do-projeto";
 import {
   ComprasDoProjeto,
@@ -34,7 +33,7 @@ type Aba = "geral" | "entradas" | "saidas" | "material" | "compras";
 /**
  * A ficha do projeto em modal (PLU-362, pedido do André em 27/11/2026): o
  * padrão das fichas do sistema (lançamento, pedido de compra, lead), com
- * cabeçalho, abas e o rodapé de ações fixo no fim. Abre a partir do card, com o
+ * cabeçalho e abas fixos, e as ações no cabeçalho (sem rodapé). Abre a partir do card, com o
  * endereço `?projeto=` (compartilhável); Esc fecha e devolve o foco ao card.
  * Só leitura, com um atalho: Nova entrada, que cria a cobrança em Lançamentos
  * com o cliente e o projeto já preenchidos (no protótipo, em memória).
@@ -71,7 +70,8 @@ export function FichaDoProjeto({ projeto: p, outros, abre, hrefDe, aoFechar }: {
     evento.preventDefault(); setAba(abas[j]!.id); botoes.current[j]?.focus();
   }
 
-  const novaEntrada = <Button variant="secondary" size="sm" icon={<Plus size={14} />} onClick={() => setCriando(true)}>Nova entrada</Button>;
+  // Os selos aparecem à direita do título; quando a faixa aperta (até 1100 px), descem para a linha do subtítulo.
+  const selos = <><SeloDoPrototipo /><Badge tone={TOM_DA_SITUACAO[p.situacao]}>{ROTULO_DA_SITUACAO[p.situacao]}</Badge></>;
 
   return <Modal rotulo={`Centro de custo de ${p.nome}`} aoFechar={aoFechar} largura="larga" className={detalhes.modal}>
     <div className={detalhes.layout}>
@@ -85,13 +85,18 @@ export function FichaDoProjeto({ projeto: p, outros, abre, hrefDe, aoFechar }: {
                 <span><UserRound size={13} aria-hidden="true" />{p.cliente.nome}</span><span aria-hidden="true">·</span>
                 <span>{ROTULO_DA_CLASSE[p.classe]} · {p.tipo}</span><span aria-hidden="true">·</span>
                 <span className={estilosFicha.empresaCabecalho}><EmpresaComPonto empresa={p.empresa} curto /></span>
+                <span className={styles.selosNaLinha}>{selos}</span>
               </div>
             </div>
           </div>
         </div>
         <div className={detalhes.controlesCabecalho}>
-          <span className={styles.seloDaFicha}><SeloDoPrototipo /></span>
-          <Badge tone={TOM_DA_SITUACAO[p.situacao]}>{ROTULO_DA_SITUACAO[p.situacao]}</Badge>
+          <span className={styles.selosNoTopo}>{selos}</span>
+          {/* As ações ficam no cabeçalho fixo (pedido do André): Nova entrada e, discreta, a página inteira. */}
+          <Button variant="secondary" size="sm" className={styles.novaEntradaDoTopo} icon={<Plus size={14} />} aria-label="Nova entrada" title="Nova entrada" onClick={() => setCriando(true)}>Nova entrada</Button>
+          <Link href={hrefDoProjeto(p.id)} className={`button button--secondary ui-button ui-button--sm ui-button--icon-only ${styles.botaoLink}`} aria-label="Abrir em página inteira" title="Abrir em página inteira">
+            <span className="ui-button-icon" aria-hidden="true"><Maximize2 size={14} /></span>
+          </Link>
           <FecharModal>{(fechar) => <button type="button" className={`${detalhes.botaoFechar} plg-pressiona`} onClick={fechar} aria-label="Fechar"><X size={18} aria-hidden="true" /></button>}</FecharModal>
         </div>
       </header>
@@ -122,18 +127,11 @@ export function FichaDoProjeto({ projeto: p, outros, abre, hrefDe, aoFechar }: {
               <ListaDeOutrosProjetos outros={outros} hrefDe={hrefDe} />
             </section> : null}
           </div> : null}
-          {aba === "entradas" ? <EntradasDoProjeto projeto={p} abre={abre} acao={novaEntrada} /> : null}
+          {aba === "entradas" ? <EntradasDoProjeto projeto={p} abre={abre} /> : null}
           {aba === "saidas" ? <SaidasDoProjeto projeto={p} abre={abre} /> : null}
           {aba === "material" ? <MaterialDoProjeto projeto={p} abre={abre} /> : null}
           {aba === "compras" ? <ComprasDoProjeto projeto={p} abre={abre} /> : null}
 
-          <footer className={`${estilosFicha.rodape} ${fichaDoLancamento.rodapeFixo}`}>
-            <Link href={hrefDoProjeto(p.id)} className={`button button--secondary ui-button ui-button--md ${styles.botaoLink}`} title="A primeira forma do protótipo, em página inteira, para comparar">
-              <span className="ui-button-icon" aria-hidden="true"><ExternalLink size={15} /></span><span className="ui-button-label">Abrir em página inteira</span>
-            </Link>
-            <span className={estilosFicha.espaco} />
-            <Button icon={<Plus size={15} />} onClick={() => setCriando(true)}>Nova entrada</Button>
-          </footer>
         </section>
       </div>
     </div>
