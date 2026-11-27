@@ -330,8 +330,13 @@ export function estadoDoEnderecoDasNotas(parametros: { get(nome: string): string
  */
 export const enfileirarGravacao = (fila: readonly string[], atual: string, nova: string): string[] => (nova === atual ? [...fila] : [...fila, nova]);
 
-/** A chave que chegou é uma gravação da tela? Se sim, sai da fila com as anteriores; se não, é navegação de fora e a fila obsoleta é descartada. */
-export function reconhecerGravacao(fila: readonly string[], chave: string): { propria: boolean; fila: string[] } {
-  const achada = fila.indexOf(chave);
+/**
+ * A chave que chegou é uma gravação da tela? Se sim, sai da fila com tudo o que veio antes dela; se não,
+ * é navegação de fora e a fila obsoleta é descartada. `atual` é a query que o endereço tem agora: quando a
+ * chave vista já é a atual, ela é a última palavra (A→B→A agrupado deixa [A, B, A] na fila) e vale a última
+ * ocorrência; senão o endereço ainda vai andar e vale a primeira, para o resto da fila esperar.
+ */
+export function reconhecerGravacao(fila: readonly string[], chave: string, atual?: string): { propria: boolean; fila: string[] } {
+  const achada = chave === atual ? fila.lastIndexOf(chave) : fila.indexOf(chave);
   return achada === -1 ? { propria: false, fila: [] } : { propria: true, fila: fila.slice(achada + 1) };
 }

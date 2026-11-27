@@ -150,6 +150,15 @@ describe("leitura segura do XML da NF-e (PLU-361)", () => {
     assert.equal(dadosDaNfe(nfe({ emitente: "Cabos &amp; Cia &#233; &#xE9;" }))?.emitente, "Cabos & Cia é é");
   });
 
+  it("o namespace da NF-e escrito com referência numérica equivalente vale: compara o valor decodificado", () => {
+    const decimal = nfe().replace('xmlns="http://www.portalfiscal.inf.br/nfe"', 'xmlns="http&#58;//www.portalfiscal.inf.br/nfe"');
+    const hexa = nfe().replace('xmlns="http://www.portalfiscal.inf.br/nfe"', 'xmlns="http&#x3A;&#x2F;&#x2F;www.portalfiscal.inf.br/nfe"');
+    assert.equal(dadosDaNfe(decimal)?.numero, "45901");
+    assert.equal(dadosDaNfe(hexa)?.numero, "45901");
+    // e o decodificado diferente continua recusado
+    assert.equal(dadosDaNfe(nfe().replace('xmlns="http://www.portalfiscal.inf.br/nfe"', 'xmlns="http&#58;//www.portalfiscal.inf.br/outra"')), null);
+  });
+
   it("aceita o XML que começa com a marca de ordem de bytes (BOM)", () => {
     assert.equal(dadosDaNfe("﻿" + nfe())?.numero, "45901");
   });

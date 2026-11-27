@@ -286,6 +286,22 @@ describe("gravações da tela no endereço: a fila de chaves que voltam pelo use
     assert.deepEqual(reconhecerGravacao(["a=1", "b=2"], "x=9"), { propria: false, fila: [] });
     assert.deepEqual(reconhecerGravacao([], "x=9"), { propria: false, fila: [] });
   });
+  it("A→B→A agrupado antes de o hook observar: ao reconhecer a atual, tudo o que veio antes dela sai da fila", () => {
+    let fila = enfileirarGravacao([], "x", "a");
+    fila = enfileirarGravacao(fila, "a", "b");
+    fila = enfileirarGravacao(fila, "b", "a");
+    assert.deepEqual(fila, ["a", "b", "a"]);
+    const visto = reconhecerGravacao(fila, "a", "a");
+    assert.deepEqual(visto, { propria: true, fila: [] });
+    // uma navegação de fora para B depois disso não é confundida com gravação da tela
+    assert.equal(reconhecerGravacao(visto.fila, "b", "b").propria, false);
+  });
+
+  it("se a chave vista ainda não é a do endereço (o endereço andou mais), vale a primeira ocorrência e o resto espera", () => {
+    assert.deepEqual(reconhecerGravacao(["a", "b", "a"], "a", "b"), { propria: true, fila: ["b", "a"] });
+    assert.deepEqual(reconhecerGravacao(["a", "b"], "b", "b"), { propria: true, fila: [] });
+  });
+
   it("gravou X, alguém navegou para Y e depois voltou para X: a volta é sincronizada, não ignorada", () => {
     let fila = enfileirarGravacao([], "", "visao=cards");
     const paraY = reconhecerGravacao(fila, "lado=saidas");

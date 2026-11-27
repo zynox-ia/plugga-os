@@ -87,7 +87,7 @@ export function NotasFiscaisView({ hoje, ladoInicial, intervaloInicial, visaoIni
   const chaveDoEndereco = enderecoAtual.toString();
   const gravadas = useRef<string[]>([]);
   useEffect(() => {
-    const { propria, fila } = reconhecerGravacao(gravadas.current, chaveDoEndereco);
+    const { propria, fila } = reconhecerGravacao(gravadas.current, chaveDoEndereco, new URL(window.location.href).searchParams.toString());
     gravadas.current = fila;
     if (propria) return;
     const doEndereco = estadoDoEnderecoDasNotas(new URLSearchParams(chaveDoEndereco));

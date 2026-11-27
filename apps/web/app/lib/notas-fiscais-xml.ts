@@ -129,8 +129,8 @@ function arvoreDoXml(xml: string): No | null {
     const vistos = new Set<string>();
     for (const a of (m[2] ?? "").matchAll(atributo)) {
       const [, chave = "", duplas, simples] = a;
-      const valor = duplas ?? simples ?? "";
-      if (vistos.has(chave) || vistos.size >= LIMITES_DO_XML.atributosPorElemento || decodificar(valor) === null) return null;
+      const valor = decodificar(duplas ?? simples ?? "");
+      if (valor === null || vistos.has(chave) || vistos.size >= LIMITES_DO_XML.atributosPorElemento) return null;
       vistos.add(chave);
       if (chave === "xmlns" || chave.startsWith("xmlns:")) {
         if (++declaracoes > LIMITES_DO_XML.declaracoesDeNamespace) return null;
