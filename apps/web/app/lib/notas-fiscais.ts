@@ -1,5 +1,5 @@
 import type { CompanyKey } from "@plugga/shared";
-import { dentroDoIntervalo, type IntervaloLivre } from "./periodo-livre.ts";
+import { dentroDoIntervalo, lerIntervalo, type IntervaloLivre } from "./periodo-livre.ts";
 
 /**
  * Regras puras da tela de Notas fiscais (PLU-361), no PROTÓTIPO visual: o lado
@@ -309,3 +309,16 @@ export type VisaoDasNotas = (typeof visoesDasNotas)[number];
 
 /** A visão do endereço (?visao=cards|lista). A Lista é a padrão: valor ausente ou desconhecido volta a ela. */
 export const visaoDasNotas = (valor: string | null | undefined): VisaoDasNotas => visoesDasNotas.find((v) => v === valor) ?? "lista";
+
+/**
+ * O que o endereço diz da tela: o lado (?lado=saidas), a visão (?visao=cards) e o período
+ * personalizado (?de=…&ate=…), cada um com seu padrão quando falta ou não vale. A tela
+ * lê isto na primeira vez e a cada mudança do endereço (navegação suave), sem remontar.
+ */
+export function estadoDoEnderecoDasNotas(parametros: { get(nome: string): string | null }): { lado: TipoDaNota; visao: VisaoDasNotas; intervalo: IntervaloLivre | null } {
+  return {
+    lado: parametros.get("lado") === "saidas" ? "saida" : "entrada",
+    visao: visaoDasNotas(parametros.get("visao")),
+    intervalo: lerIntervalo(parametros.get("de"), parametros.get("ate")),
+  };
+}

@@ -41,8 +41,12 @@ const INTERVALO = "__intervalo";
  * "Todo o período"; `semFiltro` é o atalho que o gatilho mostra só como o rótulo (o padrão da tela,
  * quando não é "todo o período"); `cheio` estica o gatilho à largura de quem o envolve.
  */
-export function FiltroDePeriodo({ label = "Período", atalhos, atalho, intervalo, aoMudar, maximoDeDias, semTodoOPeriodo = false, variante = "filtro", dica, rotuloDoTodos = "Todo o período", semFiltro = "", cheio = false }: {
+export function FiltroDePeriodo({ label = "Período", hoje, classeDoPainel, atalhos, atalho, intervalo, aoMudar, maximoDeDias, semTodoOPeriodo = false, variante = "filtro", dica, rotuloDoTodos = "Todo o período", semFiltro = "", cheio = false }: {
   label?: string;
+  /** O dia de referência da página (AAAA-MM-DD, o de Manaus): o calendário abre nele quando não há intervalo. Sem ele, vale o dia do navegador. */
+  hoje?: string;
+  /** Classe a mais no painel do menu (ver FiltroComBusca), para a tela estilizá-lo só no seu contexto. */
+  classeDoPainel?: string;
   rotuloDoTodos?: string;
   semFiltro?: string;
   cheio?: boolean;
@@ -59,7 +63,8 @@ export function FiltroDePeriodo({ label = "Período", atalhos, atalho, intervalo
   const [de, setDe] = useState("");
   const [ate, setAte] = useState("");
   const [erros, setErros] = useState<{ de?: string; ate?: string }>({});
-  const [mes, setMes] = useState<Date>(() => new Date());
+  const referencia = hoje ?? dateValue(new Date());
+  const [mes, setMes] = useState<Date>(() => parseDate(mesInicial({ de: "", ate: "" }, referencia)) ?? new Date());
   const [camada, setCamada] = useState<HTMLElement | null>(null);
   const meses = useMesesVisiveis();
   const raiz = useRef<HTMLSpanElement>(null);
@@ -83,7 +88,7 @@ export function FiltroDePeriodo({ label = "Período", atalhos, atalho, intervalo
     requestAnimationFrame(() => {
       const inicio = { de: intervalo?.de ?? "", ate: intervalo?.ate ?? "" };
       setDe(inicio.de); setAte(inicio.ate); setErros({});
-      setMes(parseDate(mesInicial(inicio, dateValue(new Date()))) ?? new Date());
+      setMes(parseDate(mesInicial(inicio, referencia)) ?? new Date());
       // Dentro de um <dialog> modal, só o que está nele recebe cliques: o painel abre na mesma camada.
       setCamada(raiz.current?.closest("dialog") ?? null);
       setPainel(true);
@@ -128,7 +133,7 @@ export function FiltroDePeriodo({ label = "Período", atalhos, atalho, intervalo
       <span ref={raiz} className={emCampo ? styles.ancoraCampo : cheio ? `${styles.ancora} ${styles.cheio}` : styles.ancora}>
         {emCampo
           ? <CampoDeMenu label={label} icon={icone} required={semTodoOPeriodo} hint={dica} value={intervalo ? INTERVALO : atalho} options={opcoes} onChange={aoEscolher} />
-          : <FiltroComBusca label={label} icon={icone} semFiltro={semFiltro} value={intervalo ? INTERVALO : atalho} options={opcoes} onChange={aoEscolher} />}
+          : <FiltroComBusca label={label} icon={icone} semFiltro={semFiltro} value={intervalo ? INTERVALO : atalho} options={opcoes} onChange={aoEscolher} {...(classeDoPainel ? { classeDoPainel } : {})} />}
       </span>
     </PopoverAnchor>
     <PopoverContent ref={conteudo} container={camada} align={emCampo ? "start" : "end"} className={styles.painel} aria-label={`${label} personalizado`}

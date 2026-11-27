@@ -78,12 +78,13 @@
 .filtros button[aria-haspopup="listbox"]:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
 .filtros button[aria-haspopup="listbox"][data-filtrado] { color: var(--ui-text); }
 .filtros button[aria-haspopup="listbox"][data-filtrado] > span { font-weight: 500; }
-/* O painel do menu aberto sai do .filtros (o Radix o põe no body): só enquanto um filtro desta tela está
-   aberto, as opções ficam no peso de repouso (400; o marcado se vê pelo realce e pelo visto) e o realce
-   usa o mesmo arredondamento do gatilho, e não os 8 px e o 500 do menu compartilhado. */
-:global(body):has(.filtros button[aria-haspopup="listbox"][aria-expanded="true"]) :global(.ui-select-content) :global(.ui-select-item),
-:global(body):has(.filtros button[aria-haspopup="listbox"][aria-expanded="true"]) :global(.ui-select-content) :global(.ui-select-item) * { font-weight: 400; }
-:global(body):has(.filtros button[aria-haspopup="listbox"][aria-expanded="true"]) :global(.ui-select-content) :global(.ui-select-item) { border-radius: var(--radius-md); }
+/* O painel do menu aberto sai do .filtros (o Radix o põe no body); por isso o FiltroComBusca recebe esta
+   classe para ele (classeDoPainel). Só os painéis dos filtros desta tela mudam: as opções ficam no peso
+   de repouso (400; o marcado se vê pelo realce e pelo visto) e o realce usa o arredondamento do gatilho
+   (12 px), e não os 8 px e o 500 do menu compartilhado. */
+.painelDoFiltro:global(.ui-select-content) :global(.ui-select-item),
+.painelDoFiltro:global(.ui-select-content) :global(.ui-select-item) * { font-weight: 400; }
+.painelDoFiltro:global(.ui-select-content) :global(.ui-select-item) { border-radius: var(--radius-md); }
 
 /* A busca no mesmo peso: sem vidro nem sombra, só uma borda sutil; o foco fica visível. */
 .barra .busca input { background: color-mix(in srgb, var(--ui-surface) 40%, transparent); border-color: var(--ui-divider); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }

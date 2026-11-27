@@ -12,6 +12,7 @@ import {
   notasDoLado,
   numeroNormalizado,
   temFiltroNasNotas,
+  estadoDoEnderecoDasNotas,
   visaoDasNotas,
   visoesDasNotas,
   ORDEM_DOS_CAMPOS,
@@ -248,5 +249,20 @@ describe("visão das Notas fiscais (Cards ou Lista)", () => {
     assert.equal(visaoDasNotas("Cards"), "lista");
     assert.equal(visaoDasNotas(" cards"), "lista");
     assert.equal(visaoDasNotas("cards,lista"), "lista");
+  });
+});
+
+describe("estado das Notas fiscais no endereço (?lado, ?visao, ?de e ?ate)", () => {
+  it("lê o lado, a visão e o intervalo de uma vez", () => {
+    const estado = estadoDoEnderecoDasNotas(new URLSearchParams("lado=saidas&visao=cards&de=2026-11-01&ate=2026-11-15"));
+    assert.deepEqual(estado, { lado: "saida", visao: "cards", intervalo: { de: "2026-11-01", ate: "2026-11-15" } });
+  });
+  it("sem parâmetros: Entradas, Lista e sem intervalo", () => {
+    assert.deepEqual(estadoDoEnderecoDasNotas(new URLSearchParams("")), { lado: "entrada", visao: "lista", intervalo: null });
+  });
+  it("valores inválidos voltam ao padrão, sem derrubar o resto", () => {
+    const estado = estadoDoEnderecoDasNotas(new URLSearchParams("lado=x&visao=quadro&de=2026-11-20&ate=2026-11-10"));
+    assert.deepEqual(estado, { lado: "entrada", visao: "lista", intervalo: null });
+    assert.deepEqual(estadoDoEnderecoDasNotas(new URLSearchParams("de=2026-11-01")).intervalo, null);
   });
 });

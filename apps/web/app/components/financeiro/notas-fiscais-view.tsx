@@ -3,6 +3,7 @@
 import type { CompanyKey, OpcoesDoFinanceiro } from "@plugga/shared";
 import type { LucideIcon } from "lucide-react";
 import { ArrowDownLeft, ArrowUpRight, Building2, Eye, FileCode2, FileText, Filter, LayoutGrid, Link2, List, Paperclip, ReceiptText } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent } from "react";
 
 import { valorEmReais } from "../../lib/compras";
@@ -10,6 +11,7 @@ import {
   filtrarNotas,
   notasDoLado,
   periodosDasNotas,
+  estadoDoEnderecoDasNotas,
   quantasNotas,
   visoesDasNotas,
   resumoDoLado,
@@ -76,6 +78,26 @@ export function NotasFiscaisView({ hoje, ladoInicial, intervaloInicial, visaoIni
   const [adicionando, setAdicionando] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
   const [destaque, setDestaque] = useState<string | null>(null);
+  // O endereço manda também depois da primeira vez: uma navegação suave para outros parâmetros
+  // (?lado, ?visao, ?de, ?ate) atualiza a tela sem remontá-la. As gravações da própria tela
+  // (history.replaceState) voltam pelo mesmo caminho e são reconhecidas em `gravadas`.
+  const enderecoAtual = useSearchParams();
+  const chaveDoEndereco = enderecoAtual.toString();
+  const gravadas = useRef<string[]>([]);
+  useEffect(() => {
+    const achada = gravadas.current.indexOf(chaveDoEndereco);
+    if (achada !== -1) { gravadas.current = gravadas.current.slice(achada + 1); return; }
+    const doEndereco = estadoDoEnderecoDasNotas(new URLSearchParams(chaveDoEndereco));
+    setLado(doEndereco.lado);
+    setVisao(doEndereco.visao);
+    setFiltros((atuais) => {
+      const mesmo = atuais.intervalo?.de === doEndereco.intervalo?.de && atuais.intervalo?.ate === doEndereco.intervalo?.ate;
+      if (mesmo) return atuais;
+      const resto: FiltrosDasNotas = { ...atuais };
+      delete resto.intervalo;
+      return doEndereco.intervalo ? { ...resto, intervalo: doEndereco.intervalo } : resto;
+    });
+  }, [chaveDoEndereco]);
   const seletorRef = useRef<HTMLDivElement>(null);
   const visoesRef = useRef<HTMLDivElement>(null);
   const listaRef = useRef<HTMLElement>(null);
@@ -93,6 +115,11 @@ export function NotasFiscaisView({ hoje, ladoInicial, intervaloInicial, visaoIni
     // O lado vai no endereço (?lado=saidas), sem recarregar: dá para mandar o link.
     const url = new URL(window.location.href);
     if (tipo === "saida") url.searchParams.set("lado", "saidas"); else url.searchParams.delete("lado");
+    gravar(url);
+  }
+  /** Grava o endereço sem recarregar e anota a chave, para o efeito acima não tratá-la como navegação de fora. */
+  function gravar(url: URL) {
+    gravadas.current.push(url.searchParams.toString());
     window.history.replaceState(null, "", url);
   }
   function escolherVisao(nova: VisaoDasNotas) {
@@ -100,7 +127,7 @@ export function NotasFiscaisView({ hoje, ladoInicial, intervaloInicial, visaoIni
     // A visão vai no endereço (?visao=cards); a Lista, que é a padrão, não precisa dele.
     const url = new URL(window.location.href);
     if (nova === "cards") url.searchParams.set("visao", "cards"); else url.searchParams.delete("visao");
-    window.history.replaceState(null, "", url);
+    gravar(url);
   }
   function navegarVisoes(evento: KeyboardEvent) {
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(evento.key)) return;
@@ -127,7 +154,7 @@ export function NotasFiscaisView({ hoje, ladoInicial, intervaloInicial, visaoIni
   function gravarIntervalo(intervalo: IntervaloLivre | null) {
     const url = new URL(window.location.href);
     escreverIntervaloNaUrl(url, intervalo);
-    window.history.replaceState(null, "", url);
+    gravar(url);
   }
   const mudarPeriodo = (escolha: EscolhaDePeriodo) => { mudarFiltros({ periodo: (escolha.atalho || undefined) as PeriodoDasNotas | undefined, intervalo: escolha.intervalo ?? undefined }); gravarIntervalo(escolha.intervalo); };
   const limpar = () => { setBusca(""); setFiltros({}); gravarIntervalo(null); };
@@ -211,9 +238,9 @@ export function NotasFiscaisView({ hoje, ladoInicial, intervaloInicial, visaoIni
       </div>
       {/* Filtros minimalistas: o visual vem do CSS local (.filtros), sem mudar o FiltroComBusca compartilhado. */}
       <div className={styles.filtros}>
-        <FiltroComBusca label="Empresa" icon={<Building2 />} semFiltro="" value={filtros.empresa ?? ""} options={empresas}
+        <FiltroComBusca label="Empresa" icon={<Building2 />} semFiltro="" value={filtros.empresa ?? ""} options={empresas} classeDoPainel={styles.painelDoFiltro}
           onChange={(v) => mudarFiltros({ empresa: (v || undefined) as CompanyKey | undefined })} />
-        <FiltroDePeriodo atalhos={atalhosDePeriodo} atalho={filtros.periodo ?? ""} intervalo={filtros.intervalo ?? null} aoMudar={mudarPeriodo} />
+        <FiltroDePeriodo hoje={hoje} classeDoPainel={styles.painelDoFiltro} atalhos={atalhosDePeriodo} atalho={filtros.periodo ?? ""} intervalo={filtros.intervalo ?? null} aoMudar={mudarPeriodo} />
         {filtrado ? <Button variant="secondary" size="sm" onClick={limpar}>Limpar</Button> : null}
       </div>
     </div>

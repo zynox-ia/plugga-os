@@ -170,10 +170,12 @@ export function CampoDeMenu({ label, options, value, onChange, placeholder = "Se
  * Filtro da barra de navegação com busca: o mesmo gatilho e o mesmo painel do
  * `FiltroDeClientes`; a lista ganha busca quando passa de 8 opções (ex.: Item).
  */
-export function FiltroComBusca({ label, options, value, onChange, icon, semFiltro }: {
+export function FiltroComBusca({ label, options, value, onChange, icon, semFiltro, classeDoPainel = "" }: {
   label: string; options: readonly OpcaoDoMenu[]; value: string; onChange: (v: string) => void; icon: ReactElement;
   /** Valor que significa "sem filtro": aí o gatilho mostra só o rótulo ("Empresa"), como no protótipo. */
   semFiltro?: string;
+  /** Classe a mais no painel (ele sai do filtro e vai para o body): quem usa o filtro pode estilizá-lo só no seu contexto. */
+  classeDoPainel?: string;
 }) {
   const id = useId();
   const [aberto, setAberto] = useState(false);
@@ -191,7 +193,7 @@ export function FiltroComBusca({ label, options, value, onChange, icon, semFiltr
         <ChevronDown size={15} className={estilosPipelines.seletorChevron} aria-hidden="true" />
       </button>
     </PopoverTrigger>
-    <PopoverContent container={container} align="end" sideOffset={6} className={`ui-select-content ${estilosPipelines.popoverFunis} ${estilosFiltro.menu} ${styles.painel} ${styles.painelFiltro}`}
+    <PopoverContent container={container} align="end" sideOffset={6} className={`ui-select-content ${estilosPipelines.popoverFunis} ${estilosFiltro.menu} ${styles.painel} ${styles.painelFiltro} ${classeDoPainel}`}
       onOpenAutoFocus={(e) => focarAoAbrir(e, value)} onCloseAutoFocus={(e) => { e.preventDefault(); gatilho.current?.focus(); }}>
       <ListaDoMenu id={id} rotulo={label} opcoes={options} valor={value} aoEscolher={(v) => { onChange(v); setAberto(false); }} aoFechar={() => setAberto(false)} variante="filtro" iconePadrao={icon} />
     </PopoverContent>
