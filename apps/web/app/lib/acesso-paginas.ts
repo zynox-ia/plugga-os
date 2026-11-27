@@ -30,6 +30,9 @@ const paginas: ReadonlyArray<readonly [string, Tela | readonly Tela[]]> = [
   // A Visão geral junta os mesmos tipos dos Lançamentos (PLU-336).
   ["/financeiro/visao-geral", TELAS_DOS_LANCAMENTOS],
   ["/financeiro/conciliacao", "financeiro.conciliacao"],
+  // Notas fiscais (PLU-361) é a tela Fiscal; Relatórios tem a tela dele (PLU-360).
+  ["/financeiro/notas-fiscais", "financeiro.fiscal"],
+  ["/financeiro/relatorios", "financeiro.relatorios"],
   // Tarefas abre com qualquer tela do Financeiro; a API filtra o que cada um vê.
   ["/financeiro/tarefas", telasPorDepartamento.financeiro],
   ["/engenharia/ordens-de-servico", TELAS_DAS_ORDENS_DE_SERVICO],

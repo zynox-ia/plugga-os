@@ -6,7 +6,6 @@ import {
   opportunityDetailSchema,
   opportunityListSchema,
   alcancaTela,
-  telasPorDepartamento,
   type ContractDetail,
   type ContractList,
   type ContractListQuery,
@@ -45,8 +44,13 @@ function onlyDigits(value: string): string {
   return value.replace(/\D/g, "");
 }
 
-const TELAS_OPORTUNIDADES = ["crm.pipelines", ...telasPorDepartamento.financeiro] as const;
-const TELAS_CONTRATOS = ["crm.contratos", ...telasPorDepartamento.financeiro] as const;
+/**
+ * As telas do Financeiro que leem oportunidades e contratos, como nas políticas
+ * de RLS. Lista fechada: a tela de Relatórios (PLU-360) não abre o CRM.
+ */
+const TELAS_DO_FINANCEIRO_NO_CRM = ["financeiro.pagar", "financeiro.receber", "financeiro.conciliacao", "financeiro.fiscal"] as const;
+export const TELAS_OPORTUNIDADES = ["crm.pipelines", ...TELAS_DO_FINANCEIRO_NO_CRM] as const;
+export const TELAS_CONTRATOS = ["crm.contratos", ...TELAS_DO_FINANCEIRO_NO_CRM] as const;
 function opportunityInclude(principal: AuthPrincipal) {
   return {
     client: { where: alcancaTela(principal.acesso, "crm.clientes") ? {} : { id: { in: [] } }, select: { id: true, name: true } },

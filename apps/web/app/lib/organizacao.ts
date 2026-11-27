@@ -145,10 +145,11 @@ export const DEPARTAMENTOS: Departamento[] = [
     id: "financeiro",
     label: "Financeiro",
     icon: "wallet",
-    // Menu aprovado pelo André em 23/11/2026 (PLU-336). Os ids de tela não
-    // mudaram: as saídas dos Lançamentos exigem `financeiro.pagar` e as
-    // entradas, `financeiro.receber`; Tarefas abre com qualquer tela do
-    // Financeiro. Fiscal segue como tela concedível, sem item no menu (P2).
+    // Menu aprovado pelo André em 23/11/2026 (PLU-336), com Notas fiscais,
+    // Centro de custo e Relatórios desde 27/11/2026 (PLU-360). As saídas dos
+    // Lançamentos exigem `financeiro.pagar` e as entradas, `financeiro.receber`;
+    // Tarefas abre com qualquer tela do Financeiro; Notas fiscais é a tela
+    // Fiscal; Centro de custo ainda não tem tela nem permissão própria.
     processos: [
       { label: "Visão geral", telas: TELAS_DOS_LANCAMENTOS, ...(financeiroHabilitado() ? { rota: "/financeiro/visao-geral", status: "parcial" as const } : { status: "em-breve" as const }) },
       // Com o portão do Financeiro fechado (build de produção), o item segue em breve.
@@ -157,12 +158,17 @@ export const DEPARTAMENTOS: Departamento[] = [
       { label: "Tarefas", telas: telasPorDepartamento.financeiro, ...(financeiroHabilitado() ? { rota: "/financeiro/tarefas", status: "parcial" as const } : { status: "em-breve" as const }) },
       // A API da conciliação já existe (PLU-339); a tela lê o extrato e os pares.
       { id: "financeiro.conciliacao", label: "Conciliação", ...(financeiroHabilitado() ? { rota: "/financeiro/conciliacao", status: "parcial" as const } : { status: "em-breve" as const }) },
+      // Notas fiscais (PLU-361) e Centro de custo ainda sem tela: em breve, sem rota.
+      { id: "financeiro.fiscal", label: "Notas fiscais", status: "em-breve" },
+      { label: "Centro de custo", status: "em-breve" },
+      { id: "financeiro.relatorios", label: "Relatórios", ...(financeiroHabilitado() ? { rota: "/financeiro/relatorios", status: "parcial" as const } : { status: "em-breve" as const }) },
     ],
     telas: [
       { id: "financeiro.pagar", label: "Contas a pagar" },
       { id: "financeiro.receber", label: "Contas a receber" },
       { id: "financeiro.conciliacao", label: "Conciliação" },
       { id: "financeiro.fiscal", label: "Fiscal" },
+      { id: "financeiro.relatorios", label: "Relatórios" },
     ],
   },
   {

@@ -62,12 +62,15 @@ describe("sitemap da barra lateral", () => {
     );
     assert.deepEqual(itens["CRM"], ["Pipelines", "Clientes", "Propostas", "Contratos"]);
     assert.deepEqual(itens["Suprimentos"], ["Compras", "Fornecedores", "Estoque"]);
-    // Menu do Financeiro aprovado em 23/11/2026 (PLU-336); Fiscal fica fora do menu (P2).
+    // Menu do Financeiro aprovado em 23/11/2026 (PLU-336), com Notas fiscais, Centro de custo e Relatórios (PLU-360).
     assert.deepEqual(itens["Financeiro"], [
       "Visão geral",
       "Lançamentos",
       "Tarefas",
       "Conciliação",
+      "Notas fiscais",
+      "Centro de custo",
+      "Relatórios",
     ]);
     assert.ok(!itens["Engenharia e Obras"]?.includes("Estoque e entrega em obra"));
   });
@@ -84,10 +87,13 @@ describe("sitemap da barra lateral", () => {
     assert.equal(ferramentas?.id, "ferramentas");
     assert.deepEqual(ferramentas?.items.map((item) => item.label), ["Agentes IA", "Configurações"]);
     assert.equal(ferramentas?.items.at(-1)?.id, "/configuracoes");
-    const rotulosDoMenu = grupos.flatMap((grupo) => grupo.items).map((item) => item.label);
+    const rotulosDoMenu = grupos.filter((grupo) => grupo.label !== "Financeiro").flatMap((grupo) => grupo.items).map((item) => item.label);
     for (const fora of ["Atividades", "Documentos", "Relatórios", "Central de Pendências"]) {
       assert.ok(!rotulosDoMenu.includes(fora), `${fora} não deve estar no menu`);
     }
+    // Relatórios existe só como item do Financeiro (PLU-360), não como item geral.
+    const comRelatorios = grupos.filter((grupo) => grupo.items.some((item) => item.label === "Relatórios")).map((grupo) => grupo.label);
+    assert.deepEqual(comRelatorios, ["Financeiro"]);
     assert.equal(navIdForPathname("/documentos"), "/documentos");
     assert.equal(tituloForNavId("/agentes-ia"), "Agentes IA");
     assert.equal(tituloForNavId("/comercial/atividades"), "Atividades");
@@ -153,16 +159,40 @@ describe("barra lateral pelo acesso", () => {
   it("o menu do Financeiro segue as telas: Lançamentos com pagar ou receber, Conciliação com a dela (PLU-336)", () => {
     const itens = (...telas: Tela[]) => navGroupsForAccess({ plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "membro", telas }] })
       .find((grupo) => grupo.label === "Financeiro")?.items.map((item) => item.label);
-    assert.deepEqual(itens("financeiro.pagar"), ["Visão geral", "Lançamentos", "Tarefas"]);
-    assert.deepEqual(itens("financeiro.receber"), ["Visão geral", "Lançamentos", "Tarefas"]);
-    assert.deepEqual(itens("financeiro.conciliacao"), ["Tarefas", "Conciliação"]);
-    assert.deepEqual(itens("financeiro.fiscal"), ["Tarefas"]);
+    // Centro de custo ainda não tem tela: aparece, em breve, para todo o departamento (PLU-360).
+    assert.deepEqual(itens("financeiro.pagar"), ["Visão geral", "Lançamentos", "Tarefas", "Centro de custo"]);
+    assert.deepEqual(itens("financeiro.receber"), ["Visão geral", "Lançamentos", "Tarefas", "Centro de custo"]);
+    assert.deepEqual(itens("financeiro.conciliacao"), ["Tarefas", "Conciliação", "Centro de custo"]);
+    assert.deepEqual(itens("financeiro.fiscal"), ["Tarefas", "Notas fiscais", "Centro de custo"]);
+    assert.deepEqual(itens("financeiro.relatorios"), ["Tarefas", "Centro de custo", "Relatórios"]);
   });
 
-  it("o editor de acesso concede as 4 telas do Financeiro, separadas do menu (PLU-336)", () => {
+  it("menu do Financeiro na ordem aprovada; Notas fiscais e Centro de custo em breve, Relatórios com tela (PLU-360)", () => {
+    const financeiro = DEPARTAMENTOS.find((departamento) => departamento.id === "financeiro")!;
+    assert.deepEqual(financeiro.processos.map((processo) => processo.label), [
+      "Visão geral", "Lançamentos", "Tarefas", "Conciliação", "Notas fiscais", "Centro de custo", "Relatórios",
+    ]);
+    const item = (label: string) => financeiro.processos.find((processo) => processo.label === label)!;
+    for (const label of ["Notas fiscais", "Centro de custo"]) {
+      assert.equal(item(label).status, "em-breve", label);
+      assert.equal(item(label).rota, undefined, label);
+    }
+    assert.equal(item("Notas fiscais").id, "financeiro.fiscal");
+    // Nos testes o portão está aberto: Relatórios leva à tela dele.
+    assert.equal(item("Relatórios").id, "financeiro.relatorios");
+    assert.equal(item("Relatórios").rota, "/financeiro/relatorios");
+    const grupo = navGroupsForAccess({ plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "membro", telas: ["financeiro.relatorios"] }] })
+      .find((g) => g.label === "Financeiro")!;
+    assert.ok(grupo.items.some((i) => i.id === "/financeiro/relatorios" && !i.disabled));
+    assert.ok(grupo.items.some((i) => i.label === "Centro de custo" && i.disabled));
+    assert.equal(navIdForPathname("/financeiro/relatorios"), "/financeiro/relatorios");
+    assert.equal(tituloForNavId("/financeiro/relatorios"), "Relatórios");
+  });
+
+  it("o editor de acesso concede as 5 telas do Financeiro, separadas do menu (PLU-336, PLU-360)", () => {
     const financeiro = DEPARTAMENTOS.find((departamento) => departamento.id === "financeiro")!;
     assert.deepEqual(telasDoDepartamento(financeiro).map((tela) => tela.id), [...telasPorDepartamento.financeiro]);
-    assert.deepEqual(telasDoDepartamento(financeiro).map((tela) => tela.label), ["Contas a pagar", "Contas a receber", "Conciliação", "Fiscal"]);
+    assert.deepEqual(telasDoDepartamento(financeiro).map((tela) => tela.label), ["Contas a pagar", "Contas a receber", "Conciliação", "Fiscal", "Relatórios"]);
     // Nos demais, as telas seguem o catálogo de acesso, na mesma ordem.
     for (const departamento of DEPARTAMENTOS.filter((d) => d.id !== "financeiro")) {
       assert.deepEqual(telasDoDepartamento(departamento).map((tela) => tela.id), [...telasPorDepartamento[departamento.id]], departamento.id);

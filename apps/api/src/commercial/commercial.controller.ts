@@ -2,7 +2,6 @@ import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Post, Qu
 import { ThrottlerGuard } from "@nestjs/throttler";
 import {
   contractListQuerySchema,
-  telasPorDepartamento,
   createContractRequestSchema,
   createOpportunityRequestSchema,
   loseOpportunityRequestSchema,
@@ -36,6 +35,7 @@ import { OriginCheckGuard } from "../core/auth/origin-check.guard";
 import { Departamento, Tela } from "../core/auth/acesso.decorator";
 import { AcessoGuard } from "../core/auth/acesso.guard";
 import { CommercialService } from "./commercial.service";
+import { TELAS_CONTRATOS, TELAS_OPORTUNIDADES } from "./prisma-commercial.repository";
 
 /**
  * Oportunidades e contratos: o CRM opera; o Financeiro só lê (contratos
@@ -48,7 +48,7 @@ export class CommercialController {
   constructor(@Inject(CommercialService) private readonly service: CommercialService) {}
 
   @Get("opportunities")
-  @Tela("crm.pipelines", ...telasPorDepartamento.financeiro)
+  @Tela(...TELAS_OPORTUNIDADES)
   listOpportunities(
     @Query(new ZodValidationPipe(opportunityListQuerySchema)) query: OpportunityListQuery,
     @CurrentPrincipal() principal: AuthPrincipal,
@@ -57,7 +57,7 @@ export class CommercialController {
   }
 
   @Get("opportunities/:id")
-  @Tela("crm.pipelines", ...telasPorDepartamento.financeiro)
+  @Tela(...TELAS_OPORTUNIDADES)
   opportunity(@Param("id", ParseUUIDPipe) id: string, @CurrentPrincipal() principal: AuthPrincipal): Promise<OpportunityDetail> {
     return this.service.opportunity(id, principal);
   }
@@ -140,7 +140,7 @@ export class CommercialController {
   }
 
   @Get("contracts")
-  @Tela("crm.contratos", ...telasPorDepartamento.financeiro)
+  @Tela(...TELAS_CONTRATOS)
   listContracts(
     @Query(new ZodValidationPipe(contractListQuerySchema)) query: ContractListQuery,
     @CurrentPrincipal() principal: AuthPrincipal,
@@ -149,7 +149,7 @@ export class CommercialController {
   }
 
   @Get("contracts/:id")
-  @Tela("crm.contratos", ...telasPorDepartamento.financeiro)
+  @Tela(...TELAS_CONTRATOS)
   contract(@Param("id", ParseUUIDPipe) id: string, @CurrentPrincipal() principal: AuthPrincipal): Promise<ContractDetail> {
     return this.service.contract(id, principal);
   }

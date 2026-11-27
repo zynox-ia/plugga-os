@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { Acesso } from "@plugga/shared";
+import type { Acesso, Tela } from "@plugga/shared";
 import { podeAbrirPagina } from "../app/lib/acesso-paginas.ts";
 
 test("URL direta respeita tela permitida e não confunde prefixos", () => {
@@ -92,6 +92,24 @@ test("Tarefas do Financeiro abre com qualquer tela do Financeiro, e só com o po
   assert.equal(abre(so()), false);
   assert.equal(abre({ plataforma: null, departamentos: [{ departamento: "engenharia-obras", nivel: "gerente" }] }), false);
   assert.equal(podeAbrirPagina(so("financeiro.pagar"), caminho, { NODE_ENV: "production" }), false);
+});
+
+test("Relatórios abre só com a tela de Relatórios, e Notas fiscais com a Fiscal, atrás do portão (PLU-360)", () => {
+  const so = (...telas: Tela[]): Acesso => ({ plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "membro", telas }] });
+  const abre = (acesso: Acesso, caminho: string) => podeAbrirPagina(acesso, caminho, { NODE_ENV: "development" });
+  assert.equal(abre(so("financeiro.relatorios"), "/financeiro/relatorios"), true);
+  assert.equal(abre(so("financeiro.pagar", "financeiro.receber", "financeiro.conciliacao", "financeiro.fiscal"), "/financeiro/relatorios"), false);
+  assert.equal(abre({ plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "gerente" }] }, "/financeiro/relatorios"), true);
+  assert.equal(abre({ plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente" }] }, "/financeiro/relatorios"), false);
+  assert.equal(abre(so("financeiro.relatorios"), "/financeiro/relatorios-outros"), false);
+  // A tela de Relatórios não abre Lançamentos nem a Conciliação, mas abre Tarefas (qualquer tela do Financeiro).
+  assert.equal(abre(so("financeiro.relatorios"), "/financeiro/lancamentos"), false);
+  assert.equal(abre(so("financeiro.relatorios"), "/financeiro/conciliacao"), false);
+  assert.equal(abre(so("financeiro.relatorios"), "/financeiro/tarefas"), true);
+  assert.equal(abre(so("financeiro.fiscal"), "/financeiro/notas-fiscais"), true);
+  assert.equal(abre(so("financeiro.relatorios"), "/financeiro/notas-fiscais"), false);
+  assert.equal(podeAbrirPagina(so("financeiro.relatorios"), "/financeiro/relatorios", { NODE_ENV: "production" }), false);
+  assert.equal(podeAbrirPagina(so("financeiro.fiscal"), "/financeiro/notas-fiscais", { NODE_ENV: "production" }), false);
 });
 
 test("Compras abre com a tela suprimentos.compras ou com o Financeiro (PLU-328)", () => {
