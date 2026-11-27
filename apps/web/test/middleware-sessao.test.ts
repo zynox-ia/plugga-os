@@ -125,9 +125,28 @@ describe("middleware: API fora do ar não desloga (PLU-343)", () => {
     assert.deepEqual(resultado(await middleware(pedir(FICHA))), { tipo: "aviso" });
   });
 
+  it("o aviso leva a query da página e o destino completo no cabeçalho interno, mesmo com um ?de= na página (PLU-357)", async () => {
+    apiResponde(new Response(null, { status: 503 }));
+    const pedida = `${FICHA}&de=%2Fadministracao`;
+    const resposta = await middleware(pedir(pedida));
+    const reescrita = new URL(resposta.headers.get("x-middleware-rewrite")!);
+    assert.equal(`${reescrita.pathname}${reescrita.search}`, `/indisponivel${new URL(pedida, "http://x").search}`);
+    // O aviso volta por aqui, não pelo ?de= da página.
+    assert.equal(resposta.headers.get("x-middleware-request-x-plugga-caminho"), pedida);
+  });
+
+  it("um x-plugga-caminho vindo do navegador não chega à página: o middleware sobrescreve", async () => {
+    apiResponde(Response.json(USUARIO));
+    const pedido = new CriarRequest("http://localhost:3000/indisponivel?de=%2Fclientes", { headers: { cookie: "sessao=abc", "x-plugga-caminho": "/administracao" } });
+    assert.equal((await middleware(pedido)).headers.get("x-middleware-request-x-plugga-caminho"), "/indisponivel?de=%2Fclientes");
+  });
+
   it("quando a API volta, a mesma página abre sem novo login", async () => {
     apiResponde(new Response(null, { status: 503 }));
-    assert.deepEqual(resultado(await middleware(pedir(FICHA))), { tipo: "aviso" });
+    const aviso = await middleware(pedir(FICHA));
+    assert.deepEqual(resultado(aviso), { tipo: "aviso" });
+    // A query da página vai junto no rewrite (o aviso reescrito não muda o endereço).
+    assert.equal(new URL(aviso.headers.get("x-middleware-rewrite")!).search, new URL(FICHA, "http://x").search);
     apiResponde(Response.json(USUARIO));
     assert.deepEqual(resultado(await middleware(pedir(FICHA))), { tipo: "seguir" });
   });

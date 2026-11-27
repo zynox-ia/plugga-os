@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { sessionUserSchema } from "@plugga/shared";
 
-import { caminhoCompleto, decidirPagina, destinoAoVoltar, destinoDoParametro, lerSessaoDaApi, type LeituraDaSessao } from "../app/lib/sessao-do-middleware.ts";
+import { caminhoCompleto, decidirPagina, destinoAoVoltar, destinoDoAviso, destinoDoParametro, lerSessaoDaApi, type LeituraDaSessao } from "../app/lib/sessao-do-middleware.ts";
 
 const USUARIO = sessionUserSchema.parse({
   id: "11111111-1111-4111-8111-111111111111",
@@ -119,6 +119,25 @@ describe("destino com a query (PLU-343, reteste do QA)", () => {
     assert.equal(destinoDoParametro("javascript:alert(1)"), null);
     assert.equal(destinoDoParametro("https://evil.example/x"), null);
     assert.equal(destinoDoParametro(undefined), null);
+  });
+
+  it("o aviso reescrito volta à página pedida pelo cabeçalho do middleware, não por um ?de= que a página já tinha (PLU-357)", () => {
+    // /suprimentos/fornecedores?fornecedor=…&de=/administracao, reescrita para o aviso: a query da página chega inteira.
+    const pedida = `${ficha}&de=%2Fadministracao`;
+    assert.equal(destinoDoAviso(pedida, "/administracao"), pedida);
+    // Repetido, o ?de= chega como array: não quebra e não vale.
+    assert.equal(destinoDoAviso(ficha, ["/a", "/b"]), ficha);
+  });
+
+  it("aberto direto (pelo exigirPagina), o aviso usa o ?de=, validado e só se for texto", () => {
+    const direto = `/indisponivel?de=${encodeURIComponent(ficha)}`;
+    assert.equal(destinoDoAviso(direto, ficha), ficha);
+    assert.equal(destinoDoAviso(direto, ["/a", "/b"]), null);
+    assert.equal(destinoDoAviso(direto, "//evil.example"), null);
+    assert.equal(destinoDoAviso(null, ficha), ficha);
+    assert.equal(destinoDoAviso(null, undefined), null);
+    // Cabeçalho fora da origem não vale; cai no ?de=.
+    assert.equal(destinoDoAviso("//evil.example/x", ficha), ficha);
   });
 
   it("ida e volta: o destino codificado no ?de= volta inteiro", () => {

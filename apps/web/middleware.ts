@@ -89,6 +89,8 @@ function avisoDeIndisponivelComCsp(request: NextRequest): NextResponse {
   const csp = buildContentSecurityPolicy(nonce, process.env.NODE_ENV === "production");
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("Content-Security-Policy", csp);
+  // O aviso volta à página pedida por aqui, não por um `de` da query dela (PLU-357).
+  requestHeaders.set(CABECALHO_DO_CAMINHO, `${request.nextUrl.pathname}${request.nextUrl.search}`);
   const destino = request.nextUrl.clone();
   destino.pathname = ROTA_DE_API_INDISPONIVEL;
   const response = NextResponse.rewrite(destino, { request: { headers: requestHeaders } });

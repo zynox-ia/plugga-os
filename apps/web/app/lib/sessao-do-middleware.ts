@@ -95,8 +95,22 @@ export function destinoAoVoltar(destino: string | null, caminhoAtual: string, bu
 }
 
 /** O `?de=` do aviso, só se for um caminho da mesma origem (nada de //outro-site, javascript: etc.). */
-export function destinoDoParametro(de: string | undefined | null): string | null {
-  return safeRelativePath(de) ?? null;
+export function destinoDoParametro(de: string | string[] | undefined | null): string | null {
+  // Repetido (`?de=a&de=b`), o parâmetro chega como array: não vale.
+  return typeof de === "string" ? safeRelativePath(de) : null;
+}
+
+/**
+ * Para onde o aviso volta (PLU-357). Reescrito pelo middleware, o aviso vem
+ * com a query da PÁGINA pedida, que pode ter um `de` dela: o destino é o
+ * cabeçalho interno que o middleware sempre sobrescreve, com o endereço
+ * pedido. Só aberto direto (o `exigirPagina` manda para
+ * `/indisponivel?de=…`) vale o `?de=`.
+ */
+export function destinoDoAviso(cabecalho: string | null, de: string | string[] | undefined | null): string | null {
+  const pedida = safeRelativePath(cabecalho);
+  if (pedida && pedida.split(/[?#]/)[0] !== ROTA_DE_API_INDISPONIVEL) return pedida;
+  return destinoDoParametro(de);
 }
 
 /**
