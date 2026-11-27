@@ -5,8 +5,6 @@
 .cabecalho { align-items: flex-start; }
 .subtitulo { max-width: 52ch; }
 .acoes { flex-wrap: wrap; justify-content: flex-end; }
-.filtroEmpresa { flex: none; }
-.filtroEmpresa button { width: auto; }
 
 
 /* ---------------------------------------------------------------- seletor */
@@ -28,35 +26,56 @@
   cursor: pointer;
   transition: border-color .18s ease, background-color .18s ease, box-shadow .18s ease;
 }
-/* A cor do lado (tokens do design system): verde nas entradas, vermelho nas saídas, nos dois estados.
-   A borda vai com a cor cheia do token (contraste de 6:1 ou mais com a superfície). O selecionado não
-   depende só da cor: a borda engrossa para 2 px, o fundo ganha um tom e o ícone fica cheio, branco
-   sobre a cor do lado; o não selecionado fica com 1 px, fundo neutro e ícone em contorno. */
-.ladoEntrada { --cor-do-lado: var(--ui-success); }
+/* Só a borda tem a cor do lado (tokens do design system): azul primário nas Entradas (o tom dos
+   itens ativos), vermelho de perigo nas Saídas. Fundo e ícone ficam neutros. A borda vai na cor cheia
+   nos dois estados (5,6:1 no azul e 6,5:1 no vermelho sobre a superfície). O selecionado não depende
+   só da cor: a borda engrossa de 1 para 2 px e o título passa de 400 para 500. */
+.ladoEntrada { --cor-do-lado: var(--ui-primary); }
 .ladoSaida { --cor-do-lado: var(--ui-danger); }
 .lado { border-color: var(--cor-do-lado, var(--ui-divider)); }
-.lado:hover { box-shadow: 0 2px 10px color-mix(in srgb, var(--cor-do-lado, var(--ui-primary)) 14%, transparent); }
+.lado:hover { box-shadow: 0 2px 8px color-mix(in srgb, var(--cor-do-lado, var(--ui-primary)) 10%, transparent); }
 .lado:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 3px; }
-.lado[aria-selected="true"] { background: color-mix(in srgb, var(--cor-do-lado, var(--ui-primary)) 6%, var(--ui-surface)); box-shadow: inset 0 0 0 1px var(--cor-do-lado, var(--ui-primary)); }
-.ladoIcone { display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid color-mix(in srgb, var(--cor-do-lado, var(--ui-muted)) 40%, transparent); border-radius: 12px; color: var(--cor-do-lado, var(--ui-muted)); background: var(--ui-surface); transition: color .18s ease, background-color .18s ease; }
-.lado[aria-selected="true"] .ladoIcone { border-color: var(--cor-do-lado, var(--ui-primary)); color: var(--ui-surface); background: var(--cor-do-lado, var(--ui-primary)); }
+.lado[aria-selected="true"] { box-shadow: inset 0 0 0 1px var(--cor-do-lado, var(--ui-primary)); }
+.ladoIcone { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; color: var(--ui-muted); background: var(--ui-subtle); }
 .ladoTexto { display: grid; gap: 2px; min-width: 0; }
-.ladoNome { font-size: 16px; font-weight: 500; line-height: 1.25; }
+.ladoNome { font-size: 16px; font-weight: 400; line-height: 1.25; }
+.lado[aria-selected="true"] .ladoNome { font-weight: 500; }
 .ladoDescricao { overflow: hidden; color: var(--ui-muted); font-size: 12.5px; text-overflow: ellipsis; white-space: nowrap; }
 .ladoNumeros { display: grid; justify-items: end; gap: 2px; min-width: 0; }
 .ladoTotal { font-size: 17px; font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; white-space: nowrap; }
 .ladoQuantidade { color: var(--ui-muted); font-size: 12px; white-space: nowrap; }
 
-/* O saldo do período, discreto, abaixo dos dois blocos. */
-.saldo { max-width: 1180px; margin: -4px 0 0; color: var(--ui-muted); font-size: 13px; flex-shrink: 0; }
-.saldo strong { color: var(--ui-text); font-weight: 500; font-variant-numeric: tabular-nums; }
-.saldo .negativo { color: var(--ui-danger); }
-
 /* ---------------------------------------------------------------- busca e filtros */
 
 .barra { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 1180px; flex-shrink: 0; }
 .busca { flex: 0 1 340px; width: auto; min-width: 0; }
-.filtros { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.filtros { display: flex; flex-wrap: nowrap; align-items: center; justify-content: flex-end; gap: 4px; min-width: 0; }
+
+/* Filtros minimalistas, só nesta tela (o FiltroComBusca e o CSS dele não mudam): sem pílula, sem
+   sombra e sem borda em repouso; texto e ícone no tom secundário (--ui-muted, 4,7:1 ou mais sobre o
+   fundo da página). Borda sutil e fundo leve no hover e com o menu aberto; o foco segue visível. Com
+   filtro ativo, o valor escolhido vai no tom do texto, em 500. A área de clique continua com 40 px. */
+.filtros button[aria-haspopup="listbox"] {
+  width: auto;
+  min-height: 40px;
+  padding: 6px 10px;
+  border-color: transparent;
+  border-radius: var(--radius-lg);
+  color: var(--ui-muted);
+  background: transparent;
+  box-shadow: none;
+}
+.filtros button[aria-haspopup="listbox"] > span { color: inherit; font-weight: 400; }
+.filtros button[aria-haspopup="listbox"]:hover,
+.filtros button[aria-haspopup="listbox"][aria-expanded="true"] { border-color: var(--ui-divider); background: color-mix(in srgb, var(--ui-surface) 55%, transparent); }
+.filtros button[aria-haspopup="listbox"]:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
+.filtros button[aria-haspopup="listbox"][data-filtrado] { color: var(--ui-text); }
+.filtros button[aria-haspopup="listbox"][data-filtrado] > span { font-weight: 500; }
+
+/* A busca no mesmo peso: sem vidro nem sombra, só uma borda sutil; o foco fica visível. */
+.barra .busca input { background: color-mix(in srgb, var(--ui-surface) 40%, transparent); border-color: var(--ui-divider); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.barra .busca input:hover { background: color-mix(in srgb, var(--ui-surface) 60%, transparent); }
+.barra .busca input:focus { background: var(--ui-surface); border-color: var(--ui-primary); box-shadow: none; outline: 2px solid color-mix(in srgb, var(--ui-primary) 25%, transparent); outline-offset: 1px; }
 
 /* ---------------------------------------------------------------- lista */
 
@@ -130,20 +149,18 @@
   .ladoTotal { font-size: 15px; }
   .barra { flex-direction: column; align-items: stretch; }
   .busca { flex: none; width: 100%; }
-  .filtros { flex-wrap: nowrap; justify-content: flex-start; }
-  .filtros > :first-child { flex: 1 1 0; min-width: 0; }
+  .filtros { flex-wrap: nowrap; justify-content: flex-start; gap: 8px; }
+  .filtros button[aria-haspopup="listbox"] { flex: 1 1 0; min-width: 0; border-color: var(--ui-divider); }
   .quem { align-items: flex-start; }
   .quem strong { white-space: normal; overflow-wrap: anywhere; }
-  /* Cabeçalho a 390: Empresa e engrenagem numa linha; "Adicionar nota fiscal" inteiro embaixo. */
-  .acoes { flex-wrap: wrap; justify-content: flex-start; gap: 8px; }
-  .filtroEmpresa { flex: 1 1 0; min-width: 0; }
-  .filtroEmpresa button { width: 100%; }
-  .adicionar { order: 3; flex: 1 0 100%; }
+  /* Cabeçalho a 390: "Adicionar nota fiscal" ocupa a linha, com a engrenagem ao lado. */
+  .acoes { flex-wrap: nowrap; justify-content: flex-start; gap: 8px; }
+  .adicionar { flex: 1 1 auto; }
   .dados { grid-template-columns: minmax(0, 1fr); }
   .tipo { grid-template-columns: minmax(0, 1fr); }
   .cartao { flex-wrap: wrap; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lado, .ladoIcone, .tipoOpcao { transition: none; }
+  .lado, .tipoOpcao { transition: none; }
 }

@@ -11,7 +11,6 @@ import {
   periodosDasNotas,
   quantasNotas,
   resumoDoLado,
-  saldoDasNotas,
   ROTULO_DO_PERIODO_DAS_NOTAS,
   ROTULO_DO_TIPO_DA_NOTA,
   temFiltroNasNotas,
@@ -74,7 +73,6 @@ export function NotasFiscaisView({ hoje, ladoInicial, opcoes, exemplos }: {
   const doLado = notasDoLado(filtradas, lado);
   const resumo = resumoDoLado(doLado);
   const filtrado = temFiltroNasNotas(filtros);
-  const saldo = saldoDasNotas(notas, filtros, hoje);
   const rotulos = ROTULO_DO_TIPO_DA_NOTA[lado];
 
   function escolherLado(tipo: TipoDaNota) {
@@ -136,10 +134,6 @@ export function NotasFiscaisView({ hoje, ladoInicial, opcoes, exemplos }: {
         </h2>
       </div>
       <div className={`${estilosPipelines.acoes} ${styles.acoes}`}>
-        <div className={styles.filtroEmpresa}>
-          <FiltroComBusca label="Empresa" icon={<Building2 />} semFiltro="" value={filtros.empresa ?? ""} options={empresas}
-            onChange={(v) => mudarFiltros({ empresa: (v || undefined) as CompanyKey | undefined })} />
-        </div>
         <Button className={styles.adicionar} icon={<IconPlus />} onClick={() => setAdicionando(true)}>Adicionar nota fiscal</Button>
         {opcoes ? <EngrenagemDoFinanceiro opcoes={opcoes} /> : null}
       </div>
@@ -164,10 +158,6 @@ export function NotasFiscaisView({ hoje, ladoInicial, opcoes, exemplos }: {
       })}
     </div>
 
-    <p className={styles.saldo} title="Entradas menos saídas, com os filtros de empresa e período">
-      Saldo das notas · <strong className={saldo.startsWith("-") ? styles.negativo : undefined}>{valorEmReais(saldo)}</strong>
-    </p>
-
     <div className={styles.barra} role="group" aria-label="Busca e filtros das notas">
       <form className={`equipe-busca ${styles.busca}`} onSubmit={buscar} role="search" aria-label="Buscar notas fiscais">
         <button type="submit" className={estilosClientes.botaoBusca} aria-label="Buscar"><IconSearch className="equipe-busca-icon" /></button>
@@ -175,7 +165,10 @@ export function NotasFiscaisView({ hoje, ladoInicial, opcoes, exemplos }: {
           onChange={(e) => { setBusca(e.target.value); if (!e.target.value) mudarFiltros({ busca: undefined }); }}
           placeholder={`Buscar número ou ${rotulos.contraparte.toLowerCase()}…`} />
       </form>
+      {/* Filtros minimalistas: o visual vem do CSS local (.filtros), sem mudar o FiltroComBusca compartilhado. */}
       <div className={styles.filtros}>
+        <FiltroComBusca label="Empresa" icon={<Building2 />} semFiltro="" value={filtros.empresa ?? ""} options={empresas}
+          onChange={(v) => mudarFiltros({ empresa: (v || undefined) as CompanyKey | undefined })} />
         <FiltroComBusca label="Período" icon={<CalendarDays />} semFiltro="" value={filtros.periodo ?? ""} options={periodos}
           onChange={(v) => mudarFiltros({ periodo: (v || undefined) as PeriodoDasNotas | undefined })} />
         {filtrado ? <Button variant="secondary" size="sm" onClick={limpar}>Limpar</Button> : null}
