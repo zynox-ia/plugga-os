@@ -16,6 +16,7 @@ import {
   quantidadeLegivel,
   textoDoDestino,
   temFiltroSoDaLista,
+  textosDaBusca,
   textoDoPrazo,
   urlDoArquivo,
   valorCurto,
@@ -148,5 +149,12 @@ describe("prazo de entrega escolhido", () => {
     assert.equal(problemaDoPrazo("2028-02-29", "2026-11-23"), null);
     assert.equal(problemaDoPrazo("2026-11-10", "2026-11-23", "2026-11-10"), null);
     assert.equal(problemaDoPrazo("2026-11-11", "2026-11-23", "2026-11-10"), "a data já passou; escolha de hoje em diante.");
+  });
+});
+
+describe("busca de pedidos (PLU-328)", () => {
+  it("anuncia só o que cada visão procura: o destino no quadro; número e título na lista", () => {
+    assert.deepEqual(textosDaBusca("quadro"), { rotulo: "Buscar pedido por número, título ou destino", dica: "Buscar pedido ou destino…" });
+    assert.deepEqual(textosDaBusca("lista"), { rotulo: "Buscar pedido por número ou título", dica: "Buscar número ou título…" });
   });
 });

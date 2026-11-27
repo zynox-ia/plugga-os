@@ -1,19 +1,26 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import type { Acesso, PedidoDeCompra } from "@plugga/shared";
+import type { Acesso, AtendimentoPeloEstoque, PedidoDeCompra } from "@plugga/shared";
+
+import type { TipoDeErroApi } from "../app/lib/api-core.ts";
 
 import {
   atividadesDoPedido,
   atividadesPorDia,
+  avisoDaAcao,
   camposDoPedidoAlterados,
   comparacaoComOrcado,
   destaquesDasCotacoes,
   diasUteisEntre,
   etapasPuladas,
+  falhaDaFicha,
   horaEmManaus,
+  opcaoDoEstoque,
   prazoDaEtapaAtual,
   resumoDaTrilha,
+  textoDaRecusa,
+  tituloDoConcluido,
   vinculoDaContaAPagar,
 } from "../app/lib/ficha-do-pedido.ts";
 
@@ -156,5 +163,76 @@ describe("conta a pagar do pedido (PLU-341)", () => {
     assert.equal(vinculoDaContaAPagar(null, comLancamentos, ligado), null);
     assert.equal(vinculoDaContaAPagar(undefined, comLancamentos, ligado), null);
     assert.equal(vinculoDaContaAPagar(conta, null, ligado), null);
+  });
+});
+
+describe("recusa e aviso das ações (PLU-328)", () => {
+  it("a recusa mantém a mensagem da API, com o problema dos campos quando vier", () => {
+    assert.equal(textoDaRecusa({ mensagem: "O pedido já foi cancelado.", porCampo: {} }), "O pedido já foi cancelado.");
+    assert.equal(textoDaRecusa({ mensagem: "Confira os dados.", porCampo: { motivo: "informe o motivo." } }), "Confira os dados. informe o motivo.");
+  });
+
+  it("o recebimento do estoque não se anuncia como aquisição", () => {
+    const receber = { acao: "confirmar_recebimento", recebidoEm: "2026-11-27" } as const;
+    assert.equal(avisoDaAcao(receber, pedido({ origemAtendimento: "estoque" })), "Recebimento confirmado: material entregue do estoque.");
+    assert.equal(avisoDaAcao(receber, pedido({ origemAtendimento: "aquisicao" })), "Recebimento confirmado: aquisição concluída.");
+    assert.equal(tituloDoConcluido("estoque"), "Entrega do estoque concluída");
+    assert.equal(tituloDoConcluido("aquisicao"), "Aquisição concluída");
+  });
+
+  it("os demais avisos seguem como eram", () => {
+    assert.equal(avisoDaAcao({ acao: "decidir_estoque", origem: "estoque" }, pedido()), "Atendido pelo estoque: o pedido foi para Retirada.");
+    assert.equal(avisoDaAcao({ acao: "decidir_estoque", origem: "aquisicao" }, pedido()), "Precisa comprar: o pedido foi para Cotações.");
+    assert.equal(avisoDaAcao({ acao: "selecionar_cotacao", cotacaoId: B }, pedido({ cotacoes: [cotacao(B, "10.00", 2)] })), "Vencedora: Fornecedor 2.");
+    assert.equal(avisoDaAcao({ acao: "aprovar" }, pedido()), "Compra aprovada.");
+  });
+});
+
+describe("ficha que não abriu (PLU-328)", () => {
+  const falhou = (tipo: TipoDeErroApi, mensagem: string) => ({ ok: false as const, erro: { tipo, mensagem, status: null } });
+
+  it("sem pedido no endereço, ou com a ficha carregada, não há aviso", () => {
+    assert.equal(falhaDaFicha(undefined, null), null);
+    assert.equal(falhaDaFicha(A, { ok: true, dados: {} }), null);
+  });
+
+  it("só o 404, ou um link que não é de pedido, é não encontrado", () => {
+    const naoAchou = { tipo: "nao_encontrada", texto: "Pedido não encontrado. O link pode estar errado." };
+    assert.deepEqual(falhaDaFicha(A, falhou("naoEncontrado", "Pedido de compra não encontrado.")), naoAchou);
+    assert.deepEqual(falhaDaFicha("abc", null), naoAchou);
+  });
+
+  it("falha de consulta diz o que houve, com a mensagem da API", () => {
+    for (const [tipo, mensagem] of [["indisponivel", "O serviço está indisponível no momento. Tente novamente em instantes."], ["proibido", "Você não tem permissão para acessar este conteúdo."], ["rejeitado", "Muitas requisições."]] as const) {
+      assert.deepEqual(falhaDaFicha(A, falhou(tipo, mensagem)), { tipo: "consulta", texto: `Não foi possível abrir o pedido. ${mensagem}` });
+    }
+  });
+});
+
+describe("atender pelo estoque segue a cobertura (PLU-328)", () => {
+  const linha = (descricao: string, dados: Partial<AtendimentoPeloEstoque["itens"][number]> = {}): AtendimentoPeloEstoque["itens"][number] => ({
+    itemDoPedidoId: B, descricao, quantidadePedida: "4.000", itemDeEstoque: { id: C, codigo: "EST-0001", nome: "Cabo", unidade: "m" }, disponivel: "9.000", pedidoDoItem: "4.000", atende: "4.000", motivo: null, ...dados,
+  });
+  const falta = linha("Cabo 6mm", { disponivel: "2.000", atende: "2.000", motivo: "insuficiente" });
+
+  it("sem vínculo em algum item, nem consulta: o botão explica", () => {
+    assert.deepEqual(opcaoDoEstoque(false, null), { disponivel: false, texto: "Para atender pelo estoque, todos os itens precisam estar vinculados a um item do estoque." });
+  });
+
+  it("espera a consulta e libera quando o estoque atende tudo", () => {
+    assert.deepEqual(opcaoDoEstoque(true, null), { disponivel: false, texto: "Consultando o estoque…" });
+    assert.deepEqual(opcaoDoEstoque(true, { atendeTudo: true, itens: [linha("Cabo 6mm")] }), { disponivel: true, texto: "Reserva o material no estoque. Vai direto para Retirada." });
+  });
+
+  it("quando não atende tudo, desabilita com o motivo", () => {
+    assert.deepEqual(opcaoDoEstoque(true, { atendeTudo: false, itens: [linha("Fita"), falta] }),
+      { disponivel: false, texto: "O estoque não atende tudo. Cabo 6mm: Disponível insuficiente. 2 m disponíveis." });
+    const varias = opcaoDoEstoque(true, { atendeTudo: false, itens: [falta, linha("Fita", { motivo: "inativo", atende: "0.000" })] });
+    assert.equal(varias.texto, "O estoque não atende tudo. Cabo 6mm: Disponível insuficiente. 2 m disponíveis. Mais 1 item sem atendimento acima.");
+    assert.deepEqual(opcaoDoEstoque(true, { atendeTudo: false, itens: [] }), { disponivel: false, texto: "O estoque não atende tudo." });
+  });
+
+  it("sem resposta da consulta não bloqueia: quem recusa é o servidor", () => {
+    assert.deepEqual(opcaoDoEstoque(true, "erro"), { disponivel: true, texto: "Não deu para consultar o estoque agora; o saldo é conferido ao decidir." });
   });
 });

@@ -207,6 +207,11 @@ export function textoDoDestino(d: PedidoDeCompraResumo["destino"]): string {
   return `${rotulosDoDestinoDeCompra[d.tipo]}${nome ? ` · ${nome}` : ""}`;
 }
 
+/** No quadro a busca é local e olha número, título e destino; na lista ela vai à API, que procura número e título. */
+export const textosDaBusca = (visao: "quadro" | "lista"): { rotulo: string; dica: string } => visao === "quadro"
+  ? { rotulo: "Buscar pedido por número, título ou destino", dica: "Buscar pedido ou destino…" }
+  : { rotulo: "Buscar pedido por número ou título", dica: "Buscar número ou título…" };
+
 /** O arquivo vem com o caminho da API; o navegador abre pela rota de proxy da web. */
 export const urlDoArquivo = (url: string): string => (url.startsWith("/api/") ? url : `/api${url.startsWith("/") ? "" : "/"}${url}`);
 

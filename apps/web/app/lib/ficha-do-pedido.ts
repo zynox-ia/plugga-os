@@ -1,7 +1,10 @@
-import { etapasDeCompra, rotulosDaEtapaDeCompra, rotulosDaFormaDePagamento, type Acesso, type ContaAPagarDoPedido, type EtapaDeCompra, type PedidoDeCompra } from "@plugga/shared";
+import { etapasDeCompra, rotulosDaEtapaDeCompra, rotulosDaFormaDePagamento, type Acesso, type AcaoDoPedido, type AtendimentoPeloEstoque, type ContaAPagarDoPedido, type EtapaDeCompra, type OrigemDoAtendimento, type PedidoDeCompra } from "@plugga/shared";
 
 import { podeAbrirPagina } from "./acesso-paginas.ts";
-import { diaCurto, hojeEmManaus, valorEmReais } from "./compras.ts";
+import type { ResultadoApi } from "./api-core.ts";
+import { textoDaLinha } from "./cobertura-do-estoque.ts";
+import { AVISO_DA_ACAO, diaCurto, hojeEmManaus, valorEmReais } from "./compras.ts";
+import { ehUuid } from "./estoque.ts";
 import { hrefDosLancamentos } from "./financeiro.ts";
 import type { AmbienteDosRecursos } from "./recursos.ts";
 
@@ -147,6 +150,52 @@ export function camposDoPedidoAlterados(pedido: PedidoDeCompra, corpo: Record<st
   // O destino é validado junto com o vínculo: se um muda, os três vão.
   if (["destino", "obraId", "clientId"].some((c) => c in mudou)) Object.assign(mudou, { destino: corpo.destino, obraId: corpo.obraId, clientId: corpo.clientId });
   return mudou;
+}
+
+/** A recusa como a API a escreveu, com o problema dos campos quando vier. */
+export function textoDaRecusa(erro: { mensagem: string; porCampo: Record<string, string | undefined> }): string {
+  const campos = Object.values(erro.porCampo).filter(Boolean);
+  return campos.length ? `${erro.mensagem} ${campos.join(" ")}` : erro.mensagem;
+}
+
+/** O aviso depois da ação aceita; `depois` é o pedido que a API devolveu. */
+export function avisoDaAcao(acao: AcaoDoPedido, depois: Pick<PedidoDeCompra, "origemAtendimento" | "cotacoes">): string | null {
+  if (acao.acao === "decidir_estoque") return acao.origem === "estoque" ? "Atendido pelo estoque: o pedido foi para Retirada." : "Precisa comprar: o pedido foi para Cotações.";
+  if (acao.acao === "selecionar_cotacao") return `Vencedora: ${depois.cotacoes.find((c) => c.id === acao.cotacaoId)?.fornecedor.nome ?? "escolhida"}.`;
+  if (acao.acao === "confirmar_recebimento" && depois.origemAtendimento === "estoque") return "Recebimento confirmado: material entregue do estoque.";
+  return AVISO_DA_ACAO[acao.acao] ?? null;
+}
+
+/** Quem saiu do estoque não fez aquisição. */
+export const tituloDoConcluido = (origem: OrigemDoAtendimento | null): string => (origem === "estoque" ? "Entrega do estoque concluída" : "Aquisição concluída");
+
+export type FalhaDaFicha = { tipo: "nao_encontrada" | "consulta"; texto: string };
+
+/**
+ * O que dizer quando o endereço pede uma ficha que não abriu. Só o 404, ou um
+ * link que não é de pedido, é "não encontrado"; o resto é falha da consulta.
+ */
+export function falhaDaFicha(pedido: string | undefined, resultado: ResultadoApi<unknown> | null): FalhaDaFicha | null {
+  if (!pedido) return null;
+  if (ehUuid(pedido) && (!resultado || resultado.ok)) return null;
+  if (!resultado || resultado.ok || resultado.erro.tipo === "naoEncontrado") return { tipo: "nao_encontrada", texto: "Pedido não encontrado. O link pode estar errado." };
+  return { tipo: "consulta", texto: `Não foi possível abrir o pedido. ${resultado.erro.mensagem}` };
+}
+
+/**
+ * O botão "atender pelo estoque": a reserva exige todos os itens vinculados e a
+ * cobertura (as mesmas condições do servidor) atendendo tudo. `null` é consulta
+ * em andamento; sem resposta ("erro") o botão segue, e quem recusa é o servidor.
+ */
+export function opcaoDoEstoque(vinculados: boolean, cobertura: AtendimentoPeloEstoque | "erro" | null): { disponivel: boolean; texto: string } {
+  if (!vinculados) return { disponivel: false, texto: "Para atender pelo estoque, todos os itens precisam estar vinculados a um item do estoque." };
+  if (cobertura === null) return { disponivel: false, texto: "Consultando o estoque…" };
+  if (cobertura === "erro") return { disponivel: true, texto: "Não deu para consultar o estoque agora; o saldo é conferido ao decidir." };
+  if (cobertura.atendeTudo) return { disponivel: true, texto: "Reserva o material no estoque. Vai direto para Retirada." };
+  const [primeira, ...demais] = cobertura.itens.filter((l) => l.motivo !== null);
+  const motivo = primeira ? ` ${primeira.descricao}: ${textoDaLinha(primeira).porque}` : "";
+  const resto = demais.length ? ` Mais ${demais.length} ${demais.length === 1 ? "item" : "itens"} sem atendimento acima.` : "";
+  return { disponivel: false, texto: `O estoque não atende tudo.${motivo}${resto}` };
 }
 
 /** A trilha resumida para telas estreitas: "3 de 7 · Cotações", a barra e a próxima etapa do caminho. */
