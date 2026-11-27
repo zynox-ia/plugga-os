@@ -22,10 +22,15 @@ import {
 import { dadosDaNfe, preencherComANfe } from "../../lib/notas-fiscais-xml";
 import { PontoDaEmpresa } from "../suprimentos/empresa";
 import { CampoDeMenu } from "../suprimentos/menu-com-busca";
-import { Alert, Button, CurrencyField, DatePicker, Dialog, Heading, TextField } from "../ui";
+import { Alert, Button, CurrencyField, DatePicker, Dialog, TextField } from "../ui";
 import styles from "./notas-fiscais.module.css";
+import { SeletorEmCartoes, type OpcaoEmCartao } from "./seletor-em-cartoes";
 
 const SEM_VINCULO = "__sem";
+const TIPOS: readonly OpcaoEmCartao<TipoDaNota>[] = [
+  { value: "entrada", titulo: "Entrada", descricao: "Emitida pela empresa para um cliente", icone: <ArrowDownLeft size={16} /> },
+  { value: "saida", titulo: "Saída", descricao: "Recebida de um fornecedor", icone: <ArrowUpRight size={16} />, cor: "vermelha" },
+];
 type Tocado = CampoDaNota | "tipo";
 
 /** No navegador, o DOMParser diz se o XML é bem formado (o `parsererror` aparece no documento). */
@@ -119,49 +124,36 @@ export function AdicionarNotaFiscal({ hoje, tipoInicial, empresaInicial, notas, 
 
   const quantosErros = Object.keys(erros).length;
   return <Dialog title="Adicionar nota fiscal" icon={<FileText size={20} />} onClose={aoCancelar}
-    description="Registro manual de uma nota já emitida, com o PDF ou o XML. Emitir a nota pelo Plugga OS vem depois, com a integração."
+    description="Registro manual de uma nota já emitida, com o PDF ou o XML."
     footer={<Button type="submit" form="form-nota-fiscal" icon={<Plus size={16} />}>Adicionar nota</Button>}>
     <form ref={formRef} id="form-nota-fiscal" className="ui-dialog-form" onSubmit={salvar} noValidate>
       {tentou && quantosErros ? <Alert tone="danger" title={quantosErros === 1 ? "Confira o campo destacado." : `Confira os ${quantosErros} campos destacados.`} /> : null}
 
       <section className="ui-dialog-section">
+        <SeletorEmCartoes legenda="Tipo da nota" nome="tipo-da-nota" valor={campos.tipo} aoMudar={trocarTipo} opcoes={TIPOS} />
         <div data-campo="arquivo"><ArquivoDaNota valor={campos.arquivo} erro={erros.arquivo} aoMudar={(arquivo, conteudo) => void anexar(arquivo, conteudo)} /></div>
         {lidoDoXml ? <p className={styles.lidoDoXml} role="status"><Info size={14} aria-hidden="true" />Dados lidos do XML; confira antes de salvar.</p> : null}
 
-        <fieldset className={styles.tipo}>
-          <legend className="sr-only">Tipo da nota</legend>
-          {(["entrada", "saida"] as const).map((tipo) => {
-            const Icone = tipo === "entrada" ? ArrowDownLeft : ArrowUpRight;
-            return <label key={tipo} className={`${styles.tipoOpcao} ${tipo === "entrada" ? styles.tipoEntrada : styles.tipoSaida}`}>
-              <input className="sr-only" type="radio" name="tipo-da-nota" value={tipo} checked={campos.tipo === tipo} onChange={() => trocarTipo(tipo)} />
-              <span className={styles.tipoIcone} aria-hidden="true"><Icone size={16} /></span>
-              <span className={styles.tipoTexto}><strong>{tipo === "entrada" ? "Entrada" : "Saída"}</strong><small>{tipo === "entrada" ? "Emitida pela empresa para um cliente" : "Recebida de um fornecedor"}</small></span>
-            </label>;
-          })}
-        </fieldset>
-        <div data-campo="empresa">
-          <CampoDeMenu label="Empresa" required options={empresas} value={campos.empresa || undefined} icon={<Building2 />} placeholder="Selecione a empresa" error={erros.empresa}
-            onChange={(v) => { if (v !== campos.empresa) digitar("empresa", { empresa: v as CompanyKey, lancamento: "" }); }} />
+        <div className="ui-dialog-grid">
+          <div data-campo="empresa">
+            <CampoDeMenu label="Empresa" required options={empresas} value={campos.empresa || undefined} icon={<Building2 />} placeholder="Selecione a empresa" error={erros.empresa}
+              onChange={(v) => { if (v !== campos.empresa) digitar("empresa", { empresa: v as CompanyKey, lancamento: "" }); }} />
+          </div>
+          <div data-campo="lancamento"><CampoDeMenu label="Lançamento vinculado" options={opcoesDeLancamento} value={campos.empresa ? campos.lancamento || SEM_VINCULO : undefined} icon={<Link2 />} placeholder="Escolha a empresa primeiro"
+            disabled={!campos.empresa} error={erros.lancamento} sempreComBusca dicaDaBusca="Buscar código ou descrição…"
+            onChange={escolherLancamento} /></div>
         </div>
         <div className="ui-dialog-grid">
-          <div data-campo="numero"><TextField label="Número" required inputMode="numeric" maxLength={14} placeholder="Ex.: 1287" value={campos.numero}
-            onChange={(e) => digitar("numero", { numero: e.target.value })} error={erros.numero} hint={erros.numero ? undefined : "Só os algarismos; zeros à esquerda não contam."} /></div>
-          <div data-campo="emitidaEm"><DatePicker label="Data de emissão" required max={hoje} value={campos.emitidaEm} onChange={(v) => digitar("emitidaEm", { emitidaEm: v })} error={erros.emitidaEm} /></div>
-          <div data-campo="valor"><CurrencyField label="Valor" required value={campos.valor} onValueChange={(v) => digitar("valor", { valor: v })} error={erros.valor}
-            hint={avisoDoValor(campos.valor, escolhido) ? `Difere do lançamento (${valorEmReais(escolhido!.valor)}). Pode salvar assim.` : undefined} /></div>
           <div data-campo="contraparteId"><CampoDeMenu label={entrada ? "Cliente" : "Fornecedor"} required options={opcoesDeContraparte} value={campos.contraparteId || undefined}
             icon={entrada ? <UserRound /> : <Truck />} placeholder={entrada ? "Selecione o cliente" : "Selecione o fornecedor"} sempreComBusca
             dicaDaBusca={entrada ? "Buscar cliente…" : "Buscar fornecedor…"} error={erros.contraparteId}
             onChange={(v) => { if (v !== campos.contraparteId) digitar("contraparteId", { contraparteId: v, lancamento: "" }); }} /></div>
+          <div data-campo="numero"><TextField label="Número" required inputMode="numeric" maxLength={14} placeholder="Ex.: 1287" value={campos.numero}
+            onChange={(e) => digitar("numero", { numero: e.target.value })} error={erros.numero} /></div>
+          <div data-campo="emitidaEm" className={styles.semAjuda}><DatePicker label="Data de emissão" required max={hoje} value={campos.emitidaEm} onChange={(v) => digitar("emitidaEm", { emitidaEm: v })} error={erros.emitidaEm} hint="" /></div>
+          <div data-campo="valor"><CurrencyField label="Valor" required value={campos.valor} onValueChange={(v) => digitar("valor", { valor: v })} error={erros.valor}
+            hint={avisoDoValor(campos.valor, escolhido) ? `Difere do lançamento (${valorEmReais(escolhido!.valor)}). Pode salvar assim.` : undefined} /></div>
         </div>
-      </section>
-
-      <section className="ui-dialog-section">
-        <div className="ui-dialog-section-header"><Heading as="h3" icon={<Link2 />}>Vínculo</Heading></div>
-        <div data-campo="lancamento"><CampoDeMenu label="Lançamento vinculado" options={opcoesDeLancamento} value={campos.lancamento || SEM_VINCULO} icon={<Link2 />}
-          disabled={!campos.empresa} error={erros.lancamento} sempreComBusca dicaDaBusca="Buscar código ou descrição…"
-          hint={!campos.empresa ? "Escolha a empresa primeiro." : `Opcional. Só ${entrada ? "cobranças" : "contas a pagar"} da mesma empresa${campos.contraparteId ? ` e do mesmo ${papel}` : ""}.`}
-          onChange={escolherLancamento} /></div>
       </section>
     </form>
   </Dialog>;
@@ -198,10 +190,8 @@ function ArquivoDaNota({ valor, erro, aoMudar }: {
       onDrop={soltar}>
       <UploadIcon size={22} aria-hidden="true" />
       <p>Arraste o PDF (DANFE) ou o XML da nota</p>
-      <Button variant="secondary" size="sm" icon={<UploadIcon />} onClick={() => input.current?.click()} aria-describedby={`${id}-ajuda`}>Selecionar arquivo</Button>
+      <Button variant="secondary" size="sm" icon={<UploadIcon />} onClick={() => input.current?.click()} aria-describedby={erro ? `${id}-ajuda` : undefined}>Selecionar arquivo</Button>
     </div>}
-    <p id={`${id}-ajuda`} className={erro ? "ui-field-error" : "ui-field-hint"} role={erro ? "alert" : undefined}>
-      {erro ? `Erro: ${erro}` : "Opcional. Um arquivo, PDF ou XML, até 25 MB. Com o XML da NF-e, os dados da nota são preenchidos."}
-    </p>
+    {erro ? <p id={`${id}-ajuda`} className="ui-field-error" role="alert">Erro: {erro}</p> : null}
   </div>;
 }

@@ -11,6 +11,7 @@ import {
   lancamentosParaVincular,
   notasDoLado,
   numeroNormalizado,
+  ORDEM_DOS_CAMPOS,
   problemaDoArquivo,
   resumoDoLado,
   saldoDasNotas,
@@ -140,6 +141,13 @@ describe("arquivo conferido pelo conteúdo", () => {
 });
 
 describe("adicionar nota fiscal", () => {
+  it("o foco do primeiro erro segue a ordem visual do modal: arquivo, empresa, lançamento, cliente ou fornecedor, número, emissão, valor", () => {
+    assert.deepEqual([...ORDEM_DOS_CAMPOS], ["arquivo", "empresa", "lancamento", "contraparteId", "numero", "emitidaEm", "valor"]);
+    const { erros } = validarNota(campos({ empresa: "", numero: "", emitidaEm: "", valor: "", contraparteId: "" }), contexto);
+    assert.equal(ORDEM_DOS_CAMPOS.find((c) => erros[c]), "empresa");
+    const semCliente = validarNota(campos({ contraparteId: "", numero: "" }), contexto).erros;
+    assert.equal(ORDEM_DOS_CAMPOS.find((c) => semCliente[c]), "contraparteId", "o cliente vem antes do número");
+  });
   it("campos obrigatórios com mensagem em português", () => {
     const { erros, nota } = validarNota(campos({ empresa: "", numero: "", emitidaEm: "", valor: "", contraparteId: "" }), contexto);
     assert.equal(nota, null);
