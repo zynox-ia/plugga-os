@@ -40,15 +40,16 @@ export const LIMITE_SEM_BUSCA = 8;
 
 const normalizar = (v: string) => v.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("pt-BR").trim();
 
-function ListaDoMenu({ id, rotulo, opcoes, valor, aoEscolher, aoFechar, variante, iconePadrao }: {
+function ListaDoMenu({ id, rotulo, opcoes, valor, aoEscolher, aoFechar, variante, iconePadrao, sempreComBusca, dicaDaBusca = "Buscar…" }: {
   id: string; rotulo: string; opcoes: readonly OpcaoDoMenu[]; valor: string | undefined;
   aoEscolher: (v: string) => void; aoFechar: () => void; variante: "campo" | "filtro";
   /** Ícone das opções que não trazem o seu (o do gatilho): toda opção tem ícone antes do rótulo, como no SelectField. */
   iconePadrao?: ReactElement;
+  sempreComBusca?: boolean; dicaDaBusca?: string;
 }) {
   const [busca, setBusca] = useState("");
   const lista = useRef<HTMLDivElement>(null);
-  const comBusca = opcoes.length > LIMITE_SEM_BUSCA;
+  const comBusca = opcoes.length > (sempreComBusca ? 0 : LIMITE_SEM_BUSCA);
   const visiveis = useMemo(() => {
     const q = normalizar(busca);
     return q ? opcoes.filter((o) => normalizar(`${o.label} ${o.description ?? ""}`).includes(q)) : opcoes;
@@ -90,7 +91,7 @@ function ListaDoMenu({ id, rotulo, opcoes, valor, aoEscolher, aoFechar, variante
   return <>
     {comBusca ? <div className={styles.menuBusca}>
       <SearchIcon size={15} aria-hidden="true" />
-      <input type="search" autoFocus aria-label={`Buscar em ${rotulo}`} aria-controls={`${id}-lista`} placeholder="Buscar…" autoComplete="off" value={busca}
+      <input type="search" autoFocus aria-label={`Buscar em ${rotulo}`} aria-controls={`${id}-lista`} placeholder={dicaDaBusca} autoComplete="off" value={busca}
         onChange={(e) => setBusca(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "ArrowDown") { e.preventDefault(); focar(0); }
@@ -123,9 +124,11 @@ function focarAoAbrir(evento: Event, valor: string | undefined) {
 }
 
 /** Campo de formulário com menu suspenso: rótulo, gatilho com ícone, ajuda e erro (como o `SelectField`). */
-export function CampoDeMenu({ label, options, value, onChange, placeholder = "Selecione uma opção", icon, required, disabled, hint, error, id }: {
+export function CampoDeMenu({ label, options, value, onChange, placeholder = "Selecione uma opção", icon, required, disabled, hint, error, id, sempreComBusca, dicaDaBusca }: {
   label: string; options: readonly OpcaoDoMenu[]; value: string | undefined; onChange: (v: string) => void;
   placeholder?: string; icon?: ReactElement; required?: boolean; disabled?: boolean; hint?: ReactNode; error?: string; id?: string;
+  /** Busca com qualquer número de opções (ex.: achar a obra pelo cliente), não só acima do limite. */
+  sempreComBusca?: boolean; dicaDaBusca?: string;
 }) {
   const gerado = useId(); const campo = id ?? gerado;
   const [aberto, setAberto] = useState(false);
@@ -150,7 +153,7 @@ export function CampoDeMenu({ label, options, value, onChange, placeholder = "Se
       </PopoverTrigger>
       <PopoverContent container={container} align="start" sideOffset={6} className={`ui-select-content ${styles.painel} ${rica ? styles.painelRico : ""}`}
         onOpenAutoFocus={(e) => focarAoAbrir(e, value)} onCloseAutoFocus={(e) => { e.preventDefault(); gatilho.current?.focus(); }}>
-        <ListaDoMenu id={campo} rotulo={label} opcoes={options} valor={value} aoEscolher={escolher} aoFechar={() => setAberto(false)} variante="campo" iconePadrao={icon} />
+        <ListaDoMenu id={campo} rotulo={label} opcoes={options} valor={value} aoEscolher={escolher} aoFechar={() => setAberto(false)} variante="campo" iconePadrao={icon} sempreComBusca={sempreComBusca} dicaDaBusca={dicaDaBusca} />
       </PopoverContent>
     </Popover>
     {hint || error ? <p id={`${campo}-ajuda`} className={error ? "ui-field-error" : "ui-field-hint"}>{error ? `Erro: ${error}` : hint}</p> : null}
