@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { CONTRAPARTES_DE_EXEMPLO } from "../app/lib/notas-fiscais-exemplo.ts";
-import { dadosDaNfe, empresaPeloNome, LIMITE_DA_LEITURA_DO_XML, podeLerOXml, preencherComANfe, sequenciaDeLeituras } from "../app/lib/notas-fiscais-xml.ts";
+import { dadosDaNfe, empresaPeloNome, LIMITE_DA_LEITURA_DO_XML, LIMITES_DO_XML, podeLerOXml, preencherComANfe, sequenciaDeLeituras } from "../app/lib/notas-fiscais-xml.ts";
 import type { CamposDaNota } from "../app/lib/notas-fiscais.ts";
 
 /** Uma NF-e INVENTADA, só com a estrutura que a regra lê (nada de nota real). */
@@ -169,5 +169,75 @@ describe("leitura segura do XML da NF-e (PLU-361)", () => {
     const terceira = leituras.nova();
     assert.equal(leituras.vale(segunda), false);
     assert.equal(leituras.vale(terceira), true);
+  });
+});
+
+const NS = "http://www.portalfiscal.inf.br/nfe";
+const raiz = (declaracoes: string, dentro: string) => `<nfeProc xmlns="${NS}"${declaracoes}><NFe><infNFe>${dentro}<ide><nNF>7</nNF></ide></infNFe></NFe></nfeProc>`;
+
+describe("custo e limites do analisador de XML (PLU-361)", () => {
+  it("XML patológico de ~1,5 MB (namespaces na raiz e centenas de milhares de tags vazias) é recusado em tempo curto", () => {
+    const declaracoes = Array.from({ length: 100 }, (_, i) => ` xmlns:n${i}="urn:exemplo:${i}"`).join("");
+    const xml = raiz(declaracoes, "<x/>".repeat(400_000));
+    const t0 = performance.now();
+    assert.equal(dadosDaNfe(xml), null);
+    assert.ok(performance.now() - t0 < 500, "a leitura precisa terminar em menos de 500 ms");
+  });
+
+  it("muitos namespaces com muitas tags também termina rápido", () => {
+    const declaracoes = Array.from({ length: 3000 }, (_, i) => ` xmlns:n${i}="urn:exemplo:${i}"`).join("");
+    const t0 = performance.now();
+    assert.equal(dadosDaNfe(raiz(declaracoes, "<x/>".repeat(300_000))), null);
+    assert.ok(performance.now() - t0 < 500);
+  });
+
+  it("os tetos: elementos, atributos por elemento e declarações de namespace", () => {
+    assert.deepEqual(LIMITES_DO_XML, { elementos: 20_000, atributosPorElemento: 50, declaracoesDeNamespace: 100 });
+    // dentro do teto lê; um a mais recusa
+    assert.equal(dadosDaNfe(raiz("", "<x/>".repeat(LIMITES_DO_XML.elementos - 6)))?.numero, "7");
+    assert.equal(dadosDaNfe(raiz("", "<x/>".repeat(LIMITES_DO_XML.elementos)))?.numero ?? null, null);
+    const atributos = (n: number) => Array.from({ length: n }, (_, i) => ` a${i}="1"`).join("");
+    assert.equal(dadosDaNfe(raiz("", `<x${atributos(LIMITES_DO_XML.atributosPorElemento)}/>`))?.numero, "7");
+    assert.equal(dadosDaNfe(raiz("", `<x${atributos(LIMITES_DO_XML.atributosPorElemento + 1)}/>`)), null);
+    const declaracoes = (n: number) => Array.from({ length: n }, (_, i) => ` xmlns:n${i}="urn:${i}"`).join("");
+    assert.equal(dadosDaNfe(raiz("", `<x${declaracoes(40)}/><y${declaracoes(40)}/>`))?.numero, "7");
+    assert.equal(dadosDaNfe(raiz("", `<x${declaracoes(40)}/><y${declaracoes(40)}/><z${declaracoes(40)}/>`)), null, "o total de declarações passa de 100");
+  });
+
+  it("a tag que não declara namespace reaproveita o escopo do pai (o mapa só é copiado quando há declaração nova)", () => {
+    const declaracoes = Array.from({ length: 45 }, (_, i) => ` xmlns:n${i}="urn:exemplo:${i}"`).join("");
+    const t0 = performance.now();
+    assert.equal(dadosDaNfe(raiz(declaracoes, "<x/>".repeat(15_000)))?.numero, "7");
+    assert.ok(performance.now() - t0 < 300);
+  });
+});
+
+describe("rigor do analisador de XML (PLU-361)", () => {
+  it("recusa atributo duplicado no mesmo elemento", () => {
+    assert.equal(dadosDaNfe(raiz("", '<x a="1" a="2"/>')), null);
+    assert.equal(dadosDaNfe(raiz("", '<x a="1" b="2"/>'))?.numero, "7");
+  });
+
+  it("valida as entidades também nos atributos", () => {
+    assert.equal(dadosDaNfe(raiz("", '<x a="&desconhecida;"/>')), null);
+    assert.equal(dadosDaNfe(raiz("", '<x a="&amp;"/>'))?.numero, "7");
+    assert.equal(dadosDaNfe(raiz("", '<x a="solto & solto"/>')), null);
+  });
+
+  it("entidades pelo nome próprio, sem protótipo: &constructor; e &__proto__; não valem", () => {
+    assert.equal(dadosDaNfe(nfe({ emitente: "A &constructor; B" })), null);
+    assert.equal(dadosDaNfe(nfe({ emitente: "A &__proto__; B" })), null);
+    assert.equal(dadosDaNfe(nfe({ emitente: "A &toString; B" })), null);
+    assert.equal(dadosDaNfe(nfe({ emitente: "A &amp; B" }))?.emitente, "A & B");
+  });
+
+  it("o infNFe só vale no caminho nfeProc/NFe/infNFe ou NFe/infNFe", () => {
+    const inf = `<infNFe><ide><nNF>3</nNF></ide></infNFe>`;
+    assert.equal(dadosDaNfe(`<nfeProc xmlns="${NS}"><NFe>${inf}</NFe></nfeProc>`)?.numero, "3");
+    assert.equal(dadosDaNfe(`<NFe xmlns="${NS}">${inf}</NFe>`)?.numero, "3");
+    assert.equal(dadosDaNfe(`<outra xmlns="${NS}"><NFe>${inf}</NFe></outra>`), null, "raiz que não é nfeProc nem NFe");
+    assert.equal(dadosDaNfe(`<nfeProc xmlns="${NS}"><x><NFe>${inf}</NFe></x></nfeProc>`), null, "NFe fora do lugar");
+    assert.equal(dadosDaNfe(`<nfeProc xmlns="${NS}">${inf}</nfeProc>`), null, "infNFe direto na raiz");
+    assert.equal(dadosDaNfe(`<nfeProc xmlns="${NS}"><NFe><x>${inf}</x></NFe></nfeProc>`), null, "infNFe dentro de outro elemento");
   });
 });

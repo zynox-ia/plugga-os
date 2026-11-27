@@ -43,9 +43,17 @@ export function sequenciaDeLeituras() {
 const NAMESPACE_DA_NFE = "http://www.portalfiscal.inf.br/nfe";
 const PROFUNDIDADE_MAXIMA = 40;
 
+/**
+ * Tetos do trabalho estrutural: uma NF-e real tem algumas centenas de elementos, poucos atributos
+ * por elemento e uma declaração de namespace. Passou de qualquer um, a leitura para e o arquivo só
+ * anexa. Assim o custo fica limitado mesmo num arquivo de 2 MB feito para travar a tela.
+ */
+export const LIMITES_DO_XML = { elementos: 20_000, atributosPorElemento: 50, declaracoesDeNamespace: 100 } as const;
+
 type No = { local: string; ns: string; filhos: No[]; texto: string };
 
-const ENTIDADES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: "\"", apos: "'" };
+/** As cinco entidades do XML, num Map: nomes como "constructor" ou "__proto__" não existem. */
+const ENTIDADES = new Map<string, string>([["amp", "&"], ["lt", "<"], ["gt", ">"], ["quot", "\""], ["apos", "'"]]);
 
 /** Decodifica as cinco entidades do XML e as referências numéricas; qualquer outra "&" é recusada (nulo). */
 function decodificar(texto: string): string | null {
@@ -57,7 +65,7 @@ function decodificar(texto: string): string | null {
       if (!Number.isFinite(codigo) || codigo < 1 || codigo > 0x10ffff) { invalido = true; return ""; }
       return String.fromCodePoint(codigo);
     }
-    const valor = ENTIDADES[nome];
+    const valor = ENTIDADES.get(nome);
     if (valor === undefined) { invalido = true; return ""; }
     return valor;
   });
@@ -69,11 +77,13 @@ function arvoreDoXml(xml: string): No | null {
   if (/<!\s*(?:DOCTYPE|ENTITY|ELEMENT|ATTLIST|NOTATION)/i.test(xml)) return null;
   const texto = xml.charCodeAt(0) === 0xfeff ? xml.slice(1) : xml;
   const raiz: No = { local: "#raiz", ns: "", filhos: [], texto: "" };
-  const pilha: { no: No; escopo: Record<string, string>; nome: string }[] = [{ no: raiz, escopo: { "": "" }, nome: "" }];
+  const pilha: { no: No; escopo: Map<string, string>; nome: string }[] = [{ no: raiz, escopo: new Map([["", ""]]), nome: "" }];
   const abertura = /<([A-Za-z_][\w.:-]*)((?:\s+[A-Za-z_][\w.:-]*\s*=\s*(?:"[^"]*"|'[^']*'))*)\s*(\/?)>/y;
   const atributo = /\s+([A-Za-z_][\w.:-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
   let i = 0;
   let temRaiz = false;
+  let elementos = 0;
+  let declaracoes = 0;
   while (i < texto.length) {
     const topo = pilha[pilha.length - 1]!;
     if (texto[i] !== "<") {
@@ -113,16 +123,23 @@ function arvoreDoXml(xml: string): No | null {
     if (!m) return null;
     const nome = m[1]!;
     if (pilha.length === 1) { if (temRaiz) return null; temRaiz = true; }
-    if (pilha.length > PROFUNDIDADE_MAXIMA) return null;
-    const escopo = { ...topo.escopo };
+    if (pilha.length > PROFUNDIDADE_MAXIMA || ++elementos > LIMITES_DO_XML.elementos) return null;
+    // O escopo do pai é reaproveitado; só vira uma cópia quando a tag declara um namespace novo.
+    let escopo = topo.escopo;
+    const vistos = new Set<string>();
     for (const a of (m[2] ?? "").matchAll(atributo)) {
       const [, chave = "", duplas, simples] = a;
       const valor = duplas ?? simples ?? "";
-      if (chave === "xmlns") escopo[""] = valor;
-      else if (chave.startsWith("xmlns:")) escopo[chave.slice(6)] = valor;
+      if (vistos.has(chave) || vistos.size >= LIMITES_DO_XML.atributosPorElemento || decodificar(valor) === null) return null;
+      vistos.add(chave);
+      if (chave === "xmlns" || chave.startsWith("xmlns:")) {
+        if (++declaracoes > LIMITES_DO_XML.declaracoesDeNamespace) return null;
+        if (escopo === topo.escopo) escopo = new Map(topo.escopo);
+        escopo.set(chave === "xmlns" ? "" : chave.slice(6), valor);
+      }
     }
     const doisPontos = nome.indexOf(":");
-    const ns = escopo[doisPontos === -1 ? "" : nome.slice(0, doisPontos)];
+    const ns = escopo.get(doisPontos === -1 ? "" : nome.slice(0, doisPontos));
     if (ns === undefined) return null;
     const no: No = { local: doisPontos === -1 ? nome : nome.slice(doisPontos + 1), ns, filhos: [], texto: "" };
     topo.no.filhos.push(no);
@@ -134,13 +151,13 @@ function arvoreDoXml(xml: string): No | null {
 
 const filho = (no: No | null | undefined, local: string): No | null => no?.filhos.find((f) => f.local === local && f.ns === NAMESPACE_DA_NFE) ?? null;
 
-/** O primeiro elemento da NF-e com esse nome, em qualquer profundidade. */
-function descendente(no: No, local: string): No | null {
-  for (const f of no.filhos) {
-    if (f.local === local && f.ns === NAMESPACE_DA_NFE) return f;
-    const dentro = descendente(f, local);
-    if (dentro) return dentro;
-  }
+const ehDaNfe = (no: No | null | undefined, local: string): no is No => !!no && no.local === local && no.ns === NAMESPACE_DA_NFE;
+
+/** O infNFe no caminho certo: nfeProc/NFe/infNFe ou NFe/infNFe, com a raiz no namespace da NF-e. */
+function infNFeDe(raiz: No): No | null {
+  const topo = raiz.filhos[0];
+  if (ehDaNfe(topo, "nfeProc")) return filho(filho(topo, "NFe"), "infNFe");
+  if (ehDaNfe(topo, "NFe")) return filho(topo, "infNFe");
   return null;
 }
 
@@ -151,11 +168,12 @@ const conteudo = (no: No | null): string | null => (no && no.filhos.length === 0
  * Os dados que interessam de uma NF-e (modelo 55, `infNFe`): número (`ide/nNF`),
  * emissão (`ide/dhEmi` ou, na versão antiga, `ide/dEmi`), valor (`total/ICMSTot/vNF`)
  * e os nomes do emitente e do destinatário. Nulo quando o texto não é XML bem
- * formado, tem DTD, ou não é uma NF-e (sem `infNFe` no namespace da NF-e).
+ * formado, tem DTD, passa dos tetos (`LIMITES_DO_XML`) ou não é uma NF-e (sem `infNFe`
+ * em nfeProc/NFe/infNFe ou NFe/infNFe, no namespace da NF-e).
  */
 export function dadosDaNfe(xml: string): DadosDaNfe | null {
   const raiz = arvoreDoXml(xml);
-  const inf = raiz ? descendente(raiz, "infNFe") : null;
+  const inf = raiz ? infNFeDe(raiz) : null;
   if (!inf) return null;
   const ide = filho(inf, "ide");
   const numero = conteudo(filho(ide, "nNF"));
