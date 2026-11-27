@@ -1,5 +1,6 @@
 // Os imports relativos levam a extensão `.ts` de propósito: este módulo é
 // exercitado por `node --test` (test/proxy.test.ts), que resolve como ESM do Node.
+import { CORPO_DO_NAO_ENCONTRADO, destinoFechadoPeloPortaoDoFinanceiro } from "./acesso-paginas.ts";
 import { montarCaminho, montarConsulta, TEMPO_MAXIMO_MS } from "./api-core.ts";
 import { apiBaseUrl } from "./env-runtime.ts";
 import { clientForwardedFor } from "./forwarded-for.ts";
@@ -44,6 +45,11 @@ function consultaDe(consulta: OpcoesDoProxy["consulta"]): string {
 }
 
 export async function proxyar(request: Request, opcoes: OpcoesDoProxy): Promise<Response> {
+  // Portão do Financeiro sobre o destino montado, com os parâmetros já resolvidos
+  // pelo Next, antes de origem e corpo: o do middleware vê o caminho ainda codificado (PLU-336).
+  if (destinoFechadoPeloPortaoDoFinanceiro(`${opcoes.prefixo ?? ""}/${opcoes.modelo}`)) {
+    return Response.json(CORPO_DO_NAO_ENCONTRADO, { status: 404 });
+  }
   const mutacao = opcoes.metodo !== "GET";
   if (mutacao && !isOriginAllowed(request)) {
     return erroLocal(403, "ACESSO_NEGADO", "origin not allowed");

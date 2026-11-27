@@ -231,12 +231,43 @@ describe("middleware: Financeiro fechado responde 404 (PLU-336)", () => {
             const cenario = `${method} ${caminho} ${JSON.stringify(portao)}`;
             assert.equal(resposta.status, 404, cenario);
             assert.equal(resposta.headers.get("x-middleware-next"), null, cenario);
-            assert.deepEqual(await resposta.json(), { codigo: "NAO_ENCONTRADO", mensagem: "Não encontramos o que você procura." }, cenario);
+            // O envelope da API, com o alias `message` que os clientes antigos leem.
+            assert.deepEqual(await resposta.json(), { codigo: "NAO_ENCONTRADO", mensagem: "Não encontramos o que você procura.", message: "Não encontramos o que você procura." }, cenario);
           }
         }
         assert.equal(chamou, false);
       });
     }
+  });
+
+  it("com o portão fechado, o caminho codificado do proxy também responde 404: o Next decodifica o parâmetro (PLU-336)", async () => {
+    const codificados = [
+      "/api/tarefas/%66inanceiro", // o [departamento] chega "financeiro" ao handler
+      "/api/tarefas/%66%69%6E%61%6E%63%65%69%72%6F/ocorrencias/1/concluir",
+      "/api/tarefas/%2566inanceiro", // dupla codificação
+      "/api/tarefas/Financeiro", "/api/tarefas/%46INANCEIRO", "/api/FINANCEIRO/lancamentos",
+      "/api/%66inanceiro/lancamentos",
+      "/api/tarefas%2Ffinanceiro", "/api%2Ftarefas%2Ffinanceiro", "/api/tarefas/financeiro%2Focorrencias",
+      "/api//financeiro/lancamentos", "/api/./financeiro/lancamentos", "/api/tarefas/./financeiro",
+    ];
+    await comPortao(FECHADOS[0]!, async () => {
+      let chamou = false;
+      globalThis.fetch = (async () => { chamou = true; return Response.json(USUARIO); }) as typeof fetch;
+      for (const caminho of codificados) {
+        const resposta = await middleware(new CriarRequest(`http://localhost:3000${caminho}`, { method: "POST", headers: { cookie: "sessao=abc" } }));
+        assert.equal(resposta.status, 404, caminho);
+        assert.equal(resposta.headers.get("x-middleware-next"), null, caminho);
+      }
+      assert.equal(chamou, false);
+    });
+  });
+
+  it("decodificação malformada ou de outro departamento não vira o Financeiro", async () => {
+    await comPortao(FECHADOS[0]!, async () => {
+      for (const caminho of ["/api/tarefas/%E0%A4%A", "/api/tarefas/%65ngenharia-obras", "/api/tarefas/financeiro-x", "/api/financeiros"]) {
+        assert.ok((await middleware(pedir(caminho))).headers.get("x-middleware-next"), caminho);
+      }
+    });
   });
 
   it("com o portão aberto, os proxies do Financeiro seguem; e o fechado não pega os outros proxies", async () => {

@@ -134,3 +134,56 @@ describe("proxy genérico (T123/T124)", () => {
     assert.equal(r.headers.get("cache-control"), "no-store");
   });
 });
+
+describe("portão do Financeiro no destino montado (PLU-336)", () => {
+  /** Fixa NODE_ENV e a flag, e devolve como estavam. */
+  async function comPortao(aberto: boolean, fazer: () => Promise<void>): Promise<void> {
+    const ambiente = process.env as Record<string, string | undefined>;
+    const anteriores = { NODE_ENV: ambiente.NODE_ENV, NEXT_PUBLIC_FINANCEIRO_HABILITADO: ambiente.NEXT_PUBLIC_FINANCEIRO_HABILITADO };
+    ambiente.NODE_ENV = "production";
+    if (aberto) ambiente.NEXT_PUBLIC_FINANCEIRO_HABILITADO = "true";
+    else delete ambiente.NEXT_PUBLIC_FINANCEIRO_HABILITADO;
+    try {
+      await fazer();
+    } finally {
+      for (const [chave, valor] of Object.entries(anteriores)) {
+        if (valor === undefined) delete ambiente[chave];
+        else ambiente[chave] = valor;
+      }
+    }
+  }
+
+  it("fechado: o destino do Financeiro responde 404 antes da origem, do corpo e da API", async () => {
+    await comPortao(false, async () => {
+      simular(() => Response.json({}));
+      // Sem origin (seria 403) e com corpo inválido (seria 400): o portão vem antes.
+      for (const opcoes of [
+        { metodo: "POST", modelo: "/tarefas/financeiro" },
+        { metodo: "POST", modelo: "/tarefas/financeiro/:id/encerrar", ids: { id: ID } },
+        { metodo: "POST", modelo: "/financeiro/conciliacao/conciliar" },
+        { metodo: "GET", modelo: "financeiro/lancamentos" },
+        { metodo: "PATCH", modelo: "/financeiro/categorias/:id", ids: { id: "../x" } },
+        { metodo: "POST", prefixo: "", modelo: "/tarefas/Financeiro" },
+      ] as const) {
+        const r = await proxyar(requisicao("não é json"), opcoes);
+        assert.equal(r.status, 404, opcoes.modelo);
+        assert.deepEqual(await r.json(), { codigo: "NAO_ENCONTRADO", mensagem: "Não encontramos o que você procura.", message: "Não encontramos o que você procura." });
+      }
+      assert.equal(chamadas.length, 0);
+    });
+  });
+
+  it("fechado: os outros destinos seguem; aberto: o Financeiro segue", async () => {
+    await comPortao(false, async () => {
+      simular(() => Response.json({ ok: true }));
+      for (const modelo of ["/tarefas/engenharia-obras", "/financeiros", "/compras/pedidos"]) {
+        assert.equal((await proxyar(requisicao(), { metodo: "GET", modelo })).status, 200, modelo);
+      }
+    });
+    await comPortao(true, async () => {
+      simular(() => Response.json({ ok: true }));
+      assert.equal((await proxyar(requisicao(), { metodo: "GET", modelo: "/tarefas/financeiro" })).status, 200);
+      assert.equal(chamadas.at(-1)?.url, "http://api.test/tarefas/financeiro");
+    });
+  });
+});

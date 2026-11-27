@@ -46,13 +46,43 @@ const paginas: ReadonlyArray<readonly [string, Tela | readonly Tela[]]> = [
   ["/engenharia/obras", "engenharia-obras.obras"],
 ];
 
+/** O 404 do portão fechado, no envelope da API (com o alias `message` que os clientes antigos leem). */
+export const CORPO_DO_NAO_ENCONTRADO = { codigo: "NAO_ENCONTRADO", mensagem: "Não encontramos o que você procura.", message: "Não encontramos o que você procura." } as const;
+
+/**
+ * Os segmentos do caminho como o servidor os resolve, para os portões: o Next
+ * decodifica os parâmetros dinâmicos (`/api/tarefas/%66inanceiro` chega ao
+ * handler como `financeiro`), então o portão compara o caminho decodificado
+ * (até três vezes, para a dupla codificação), sem `\`, `//` nem `.`, e em
+ * minúsculas. Errar para mais só fecha um caminho que não existe.
+ */
+function segmentosCanonicos(caminho: string): string[] {
+  let atual = caminho;
+  for (let vez = 0; vez < 3; vez += 1) {
+    let decodificado: string;
+    try {
+      decodificado = decodeURIComponent(atual);
+    } catch {
+      break;
+    }
+    if (decodificado === atual) break;
+    atual = decodificado;
+  }
+  return atual.replace(/\\/g, "/").split("/").filter((s) => s !== "" && s !== ".").map((s) => s.toLowerCase());
+}
+
+/** O caminho (da web ou da API) cai no Financeiro: `/financeiro/**` ou as Tarefas dele. */
+function doFinanceiro(segmentos: string[]): boolean {
+  return segmentos[0] === "financeiro" || (segmentos[0] === "tarefas" && segmentos[1] === "financeiro");
+}
+
 /**
  * Página do Financeiro com o portão fechado (lib/recursos.ts): não existe para
  * ninguém. O middleware a deixa seguir para o layout do Financeiro responder
  * 404, em vez de mandar ao início como faz com quem não tem acesso (PLU-336).
  */
 export function fechadaPeloPortaoDoFinanceiro(pathname: string, ambiente?: AmbienteDosRecursos): boolean {
-  return (pathname === "/financeiro" || pathname.startsWith("/financeiro/")) && !financeiroHabilitado(ambiente);
+  return segmentosCanonicos(pathname)[0] === "financeiro" && !financeiroHabilitado(ambiente);
 }
 
 /**
@@ -61,8 +91,13 @@ export function fechadaPeloPortaoDoFinanceiro(pathname: string, ambiente?: Ambie
  * estar configurado diferente (PLU-336).
  */
 export function proxyFechadoPeloPortaoDoFinanceiro(pathname: string, ambiente?: AmbienteDosRecursos): boolean {
-  const doFinanceiro = ["/api/financeiro", "/api/tarefas/financeiro"].some((prefixo) => pathname === prefixo || pathname.startsWith(`${prefixo}/`));
-  return doFinanceiro && !financeiroHabilitado(ambiente);
+  const segmentos = segmentosCanonicos(pathname);
+  return segmentos[0] === "api" && doFinanceiro(segmentos.slice(1)) && !financeiroHabilitado(ambiente);
+}
+
+/** O destino na API (já com os parâmetros resolvidos) é do Financeiro e o portão está fechado. */
+export function destinoFechadoPeloPortaoDoFinanceiro(destino: string, ambiente?: AmbienteDosRecursos): boolean {
+  return doFinanceiro(segmentosCanonicos(destino)) && !financeiroHabilitado(ambiente);
 }
 
 /** `ambiente` só existe para o teste do portão; a tela usa o do build. */
