@@ -169,6 +169,27 @@ describe.skipIf(!HABILITADO)("estoque: saldo, movimentações e reservas no Post
     expect(await prisma.reservaDeEstoque.count({ where: { pedidoId: pedido } })).toBe(0);
   }, PRAZO_MS);
 
+  it("a análise soma as linhas do mesmo item e não conta item inativo (auditoria 27/11, S2 2)", async () => {
+    const id = await criarItem({ saldoInicial: "5", custoUnitario: "2.00" });
+    const pedido = await compras.criar(criarPedidoDeCompraSchema.parse({
+      empresa: "plugga", titulo: `${marca} pedido`, destino: "interno", prazoEntregaDesejado: "2026-12-10",
+      itens: [{ descricao: "primeira", quantidade: "4", itemDeEstoqueId: id }, { descricao: "segunda", quantidade: "4", itemDeEstoqueId: id }],
+    }), principal, AGORA);
+    await compras.executarAcao(pedido, acaoDoPedidoSchema.parse({ acao: "iniciar_analise" }), principal, AGORA);
+    const analise = await compras.atendimento(pedido);
+    expect(analise.itens.map((i) => [i.descricao, i.atende, i.motivo])).toEqual([["primeira", "4.000", null], ["segunda", "1.000", "insuficiente"]]);
+    expect(analise.atendeTudo).toBe(false);
+    // A análise e a reserva concordam: a reserva recusa o que a análise diz que não cobre.
+    await expect(compras.executarAcao(pedido, acaoDoPedidoSchema.parse({ acao: "decidir_estoque", origem: "estoque" }), principal, AGORA)).rejects.toBeInstanceOf(EstadoInvalido);
+
+    const inativo = await criarItem({ saldoInicial: "10", custoUnitario: "2.00" });
+    const outro = await pedidoAtendidoPeloEstoque(inativo, "3");
+    await estoque.mudarSituacao(inativo, false, principal);
+    const doInativo = await compras.atendimento(outro);
+    expect(doInativo.itens.map((i) => [i.atende, i.motivo])).toEqual([["0.000", "inativo"]]);
+    expect(doInativo.atendeTudo).toBe(false);
+  }, PRAZO_MS);
+
   it("o recebimento de aquisição dá entrada com o custo da compra", async () => {
     const id = await criarItem({ saldoInicial: "10", custoUnitario: "10.00" });
     const pedido = await pedidoAtendidoPeloEstoque(id, "10");

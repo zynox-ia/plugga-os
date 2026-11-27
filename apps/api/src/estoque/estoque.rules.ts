@@ -229,6 +229,41 @@ export function aceitaEntradaDoPedido(pedido: PedidoDaEntrada): boolean {
   return !pedido.cancelado && !pedido.atendidoPeloEstoque && faltaEntrar(pedido).gt(0);
 }
 
+/** Por que uma linha do pedido não é atendida inteira pelo estoque. */
+export type MotivoSemCobertura = "sem_vinculo" | "inativo" | "outra_empresa" | "insuficiente";
+
+export type LinhaParaCobertura = {
+  quantidade: Prisma.Decimal;
+  item: { id: string; companyId: string; ativo: boolean; emEstoque: Prisma.Decimal; reservado: Prisma.Decimal } | null;
+};
+
+/**
+ * Quanto o estoque atende cada linha do pedido na análise (PLU-332), com as
+ * mesmas condições da reserva: o item precisa estar ativo e ser da empresa do
+ * pedido, e linhas do mesmo item dividem um disponível só, na ordem do pedido.
+ * Assim a análise nunca promete o que a reserva recusa.
+ */
+export function coberturaPeloEstoque(linhas: readonly LinhaParaCobertura[], empresaDoPedido: string) {
+  const restante = new Map<string, Prisma.Decimal>();
+  const demanda = new Map<string, Prisma.Decimal>();
+  for (const linha of linhas) {
+    if (linha.item) demanda.set(linha.item.id, (demanda.get(linha.item.id) ?? ZERO).add(linha.quantidade));
+  }
+  const resultado = linhas.map((linha) => {
+    const item = linha.item;
+    if (!item) return { atende: ZERO, disponivel: null, pedidoDoItem: null, motivo: "sem_vinculo" as MotivoSemCobertura };
+    const disponivel = Prisma.Decimal.max(item.emEstoque.sub(item.reservado), 0);
+    const pedidoDoItem = demanda.get(item.id)!;
+    const bloqueio: MotivoSemCobertura | null = !item.ativo ? "inativo" : item.companyId !== empresaDoPedido ? "outra_empresa" : null;
+    if (bloqueio) return { atende: ZERO, disponivel, pedidoDoItem, motivo: bloqueio };
+    const sobra = restante.get(item.id) ?? disponivel;
+    const atende = Prisma.Decimal.min(linha.quantidade, sobra);
+    restante.set(item.id, sobra.sub(atende));
+    return { atende, disponivel, pedidoDoItem, motivo: atende.gte(linha.quantidade) ? null : ("insuficiente" as MotivoSemCobertura) };
+  });
+  return { linhas: resultado, atendeTudo: resultado.length > 0 && resultado.every((r) => r.motivo === null) };
+}
+
 /** O dia informado não pode ser futuro (em Manaus). */
 export function diaValido(dia: string, agora: Date): boolean {
   return dia <= diaEmManaus(agora);

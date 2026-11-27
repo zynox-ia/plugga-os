@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   D,
   aceitaEntradaDoPedido,
+  coberturaPeloEstoque,
   custoMedioDepoisDaEntrada,
+  type LinhaParaCobertura,
   faltaEntrar,
   problemaDaEntradaDoPedido,
   type PedidoDaEntrada,
@@ -151,6 +153,34 @@ describe("código, semanas e textos", () => {
     const agora = new Date("2026-11-23T14:00:00Z");
     expect(diaValido("2026-11-23", agora)).toBe(true);
     expect(diaValido("2026-11-24", agora)).toBe(false);
+  });
+
+  describe("cobertura pelo estoque na análise", () => {
+    const item = (id: string, dados: Partial<NonNullable<LinhaParaCobertura["item"]>> = {}) => ({ id, companyId: "plugga", ativo: true, emEstoque: D(10), reservado: D(5), ...dados });
+    const textos = (r: ReturnType<typeof coberturaPeloEstoque>) => r.linhas.map((l) => [l.atende.toFixed(3), l.motivo, l.pedidoDoItem?.toFixed(3) ?? null]);
+
+    it("linhas do mesmo item dividem o disponível, na ordem do pedido", () => {
+      const r = coberturaPeloEstoque([{ quantidade: D(4), item: item("a") }, { quantidade: D(4), item: item("a") }, { quantidade: D(2), item: item("b") }], "plugga");
+      expect(textos(r)).toEqual([["4.000", null, "8.000"], ["1.000", "insuficiente", "8.000"], ["2.000", null, "2.000"]]);
+      expect(r.atendeTudo).toBe(false);
+    });
+
+    it("item inativo, de outra empresa ou sem vínculo não atende", () => {
+      const r = coberturaPeloEstoque([
+        { quantidade: D(1), item: item("a", { ativo: false }) },
+        { quantidade: D(1), item: item("b", { companyId: "waze" }) },
+        { quantidade: D(1), item: null },
+      ], "plugga");
+      expect(textos(r)).toEqual([["0.000", "inativo", "1.000"], ["0.000", "outra_empresa", "1.000"], ["0.000", "sem_vinculo", null]]);
+      expect(r.atendeTudo).toBe(false);
+    });
+
+    it("atende tudo quando cada item cobre a soma das suas linhas; disponível negativo vira zero", () => {
+      expect(coberturaPeloEstoque([{ quantidade: D(2), item: item("a") }, { quantidade: D(3), item: item("a") }], "plugga").atendeTudo).toBe(true);
+      const zerado = coberturaPeloEstoque([{ quantidade: D(1), item: item("a", { emEstoque: D(1), reservado: D(1) }) }], "plugga");
+      expect([zerado.linhas[0]!.disponivel?.toFixed(3), zerado.linhas[0]!.motivo]).toEqual(["0.000", "insuficiente"]);
+      expect(coberturaPeloEstoque([], "plugga").atendeTudo).toBe(false);
+    });
   });
 
   describe("entrada por compra ligada ao pedido", () => {

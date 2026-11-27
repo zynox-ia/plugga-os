@@ -42,7 +42,7 @@ import {
   somarValores,
   type EstadoDoPedido,
 } from "./compras.rules";
-import { D } from "../estoque/estoque.rules";
+import { coberturaPeloEstoque } from "../estoque/estoque.rules";
 import { diaComoData, MovimentosDeEstoque } from "../estoque/movimentos-de-estoque";
 import { diaEmManaus, fimDoDiaEmManaus, inicioDoDiaEmManaus } from "./dias-uteis";
 
@@ -408,33 +408,35 @@ export class PrismaComprasRepository {
     const pedido = await this.prisma.comContexto((tx) => tx.pedidoDeCompra.findUnique({
       where: { id: pedidoId },
       select: {
+        companyId: true,
         itens: {
           orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-          select: { id: true, descricao: true, quantidade: true, itemDeEstoque: { select: { id: true, codigo: true, nome: true, unidade: true, emEstoque: true, reservado: true } } },
+          select: {
+            id: true, descricao: true, quantidade: true,
+            itemDeEstoque: { select: { id: true, codigo: true, nome: true, unidade: true, emEstoque: true, reservado: true, ativo: true, companyId: true } },
+          },
         },
       },
     }));
     if (!pedido) throw new NaoEncontrado("Pedido de compra não encontrado.");
-    const itens = pedido.itens.map((item) => {
-      const estoque = item.itemDeEstoque;
-      const disponivel = estoque ? estoque.emEstoque.sub(estoque.reservado) : null;
-      const atende = disponivel === null ? D(0) : Prisma.Decimal.min(item.quantidade, Prisma.Decimal.max(disponivel, 0));
-      return {
-        itemDoPedidoId: item.id,
-        descricao: item.descricao,
-        quantidadePedida: item.quantidade.toFixed(3),
-        itemDeEstoque: estoque ? { id: estoque.id, codigo: estoque.codigo, nome: estoque.nome, unidade: estoque.unidade } : null,
-        disponivel: disponivel?.toFixed(3) ?? null,
-        atende: atende.toFixed(3),
-        cobre: disponivel !== null && disponivel.gte(item.quantidade),
-      };
-    });
+    // As mesmas condições da reserva: linhas do mesmo item dividem o disponível; inativo e outra empresa não atendem.
+    const cobertura = coberturaPeloEstoque(pedido.itens.map((item) => ({ quantidade: item.quantidade, item: item.itemDeEstoque })), pedido.companyId);
     return {
-      itens: itens.map((item) => ({
-        itemDoPedidoId: item.itemDoPedidoId, descricao: item.descricao, quantidadePedida: item.quantidadePedida,
-        itemDeEstoque: item.itemDeEstoque, disponivel: item.disponivel, atende: item.atende,
-      })),
-      atendeTudo: itens.length > 0 && itens.every((item) => item.cobre),
+      itens: pedido.itens.map((item, i) => {
+        const linha = cobertura.linhas[i]!;
+        const estoque = item.itemDeEstoque;
+        return {
+          itemDoPedidoId: item.id,
+          descricao: item.descricao,
+          quantidadePedida: item.quantidade.toFixed(3),
+          itemDeEstoque: estoque ? { id: estoque.id, codigo: estoque.codigo, nome: estoque.nome, unidade: estoque.unidade } : null,
+          disponivel: linha.disponivel?.toFixed(3) ?? null,
+          pedidoDoItem: linha.pedidoDoItem?.toFixed(3) ?? null,
+          atende: linha.atende.toFixed(3),
+          motivo: linha.motivo,
+        };
+      }),
+      atendeTudo: cobertura.atendeTudo,
     };
   }
 

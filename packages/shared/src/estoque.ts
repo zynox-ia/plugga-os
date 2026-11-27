@@ -383,9 +383,18 @@ export type ListarMovimentacoesResposta = z.infer<typeof listarMovimentacoesResp
 // ---------------------------------------------------------------- ligação com Compras
 
 /**
+ * Por que a linha não é atendida inteira pelo estoque: sem item de estoque
+ * vinculado, item inativo, item de outra empresa ou disponível insuficiente.
+ */
+export const motivosSemCobertura = ["sem_vinculo", "inativo", "outra_empresa", "insuficiente"] as const;
+export const motivoSemCoberturaSchema = z.enum(motivosSemCobertura);
+export type MotivoSemCobertura = z.infer<typeof motivoSemCoberturaSchema>;
+
+/**
  * Quanto o estoque da empresa do pedido atende, item a item, na análise de
- * estoque: `GET /suprimentos/compras/pedidos/:id/atendimento`. Item do pedido
- * sem item de estoque vinculado não é atendido pelo estoque.
+ * estoque: `GET /suprimentos/compras/pedidos/:id/atendimento`. Segue as mesmas
+ * condições da reserva: linhas do mesmo item dividem um disponível só (na
+ * ordem do pedido), e item inativo ou de outra empresa não atende.
  */
 export const atendimentoPeloEstoqueSchema = z.object({
   itens: z.array(
@@ -394,12 +403,17 @@ export const atendimentoPeloEstoqueSchema = z.object({
       descricao: z.string(),
       quantidadePedida: z.string(),
       itemDeEstoque: z.object({ id: uuid, codigo: z.string(), nome: z.string(), unidade: z.string() }).nullable(),
+      /** Disponível do item (em estoque − reservado, nunca negativo); nulo sem vínculo. */
       disponivel: z.string().nullable(),
-      /** min(pedido, disponível); "0" sem vínculo. */
+      /** Soma das linhas deste pedido com o mesmo item; nulo sem vínculo. */
+      pedidoDoItem: z.string().nullable(),
+      /** O que o estoque atende desta linha, depois das linhas anteriores do mesmo item; "0.000" quando não atende. */
       atende: z.string(),
+      /** Nulo quando atende a linha inteira. */
+      motivo: motivoSemCoberturaSchema.nullable(),
     }),
   ),
-  /** Todos os itens vinculados e com disponível suficiente: dá para decidir "estoque". */
+  /** Todas as linhas atendidas inteiras: dá para decidir "estoque". */
   atendeTudo: z.boolean(),
 });
 export type AtendimentoPeloEstoque = z.infer<typeof atendimentoPeloEstoqueSchema>;
