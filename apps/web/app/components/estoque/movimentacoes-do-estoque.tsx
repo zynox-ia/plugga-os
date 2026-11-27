@@ -3,20 +3,22 @@
 import { rotulosDoTipoDeMovimentacao, type ListarMovimentacoesResposta, type Movimentacao } from "@plugga/shared";
 import { ArrowRight, History, Package } from "lucide-react";
 import Link from "next/link";
-import type { CSSProperties } from "react";
+import { Fragment, type CSSProperties } from "react";
 
-import { hrefDeCompras, numeroDoPedido, valorEmReais } from "../../lib/compras";
+import { numeroDoPedido, valorEmReais } from "../../lib/compras";
 import { deltaDaMovimentacao, diaPorExtenso, horaEmManaus, primeiroNome, qtd, qtdComSinal, rotuloDoDia } from "../../lib/estoque";
+import { hrefDoPedido, partesDaOrigem, type AcessoDoEstoque, type ParteDaOrigem } from "../../lib/estoque-acesso";
 import { EmpresaComPonto } from "../suprimentos/empresa";
 import { Button, Dialog } from "../ui";
 import styles from "./estoque.module.css";
 import { ICONE_DO_TIPO } from "./partes";
 
-const hrefDoPedido = (id: string) => hrefDeCompras({ visao: "lista", situacao: "todos" }, id);
+/** Link só no trecho que a pessoa alcança; os outros são texto. */
+const Vinculos = ({ partes }: { partes: ParteDaOrigem[] }) => <>{partes.map((p, i) => <Fragment key={i}>{i ? " · " : null}{p.href ? <Link className={styles.link} href={p.href}>{p.texto}</Link> : p.texto}</Fragment>)}</>;
 const semReserva = (m: Movimentacao) => m.tipo !== "reserva" && m.tipo !== "liberacao";
 
 /** Movimentações agrupadas por dia (padrão do histórico do lead): 5 colunas, sem rolagem lateral; a 980 px vira card. */
-export function MovimentacoesDoEstoque({ dias, hoje, aoAbrir }: { dias: ListarMovimentacoesResposta["dias"]; hoje: string; aoAbrir: (m: Movimentacao) => void }) {
+export function MovimentacoesDoEstoque({ dias, hoje, acesso, aoAbrir }: { dias: ListarMovimentacoesResposta["dias"]; hoje: string; acesso: AcessoDoEstoque; aoAbrir: (m: Movimentacao) => void }) {
   let indice = 0;
   return <div className={styles.movs}>
     <div className={styles.movsCabeca} aria-hidden="true"><span>Item</span><span>Quantidade</span><span>Saldo</span><span>Origem ou destino</span><span>Quem</span></div>
@@ -37,7 +39,7 @@ export function MovimentacoesDoEstoque({ dias, hoje, aoAbrir }: { dias: ListarMo
             </div>
             <div className={`${styles.movQtd} ${semReserva(m) ? "" : styles.movQtdReserva}`}>{qtdComSinal(m)}{semReserva(m) ? null : <small>{m.tipo === "reserva" ? "reservado" : "liberado"}</small>}</div>
             <div className={styles.movSaldo}>{qtd(m.saldoDepois, m.item.unidade)}<small>saldo depois</small></div>
-            <div className={styles.movOrigem}>{m.pedido ? <Link className={styles.link} href={hrefDoPedido(m.pedido.id)}>{m.origemOuDestino}</Link> : <span>{m.origemOuDestino}</span>}</div>
+            <div className={styles.movOrigem}><Vinculos partes={partesDaOrigem(m, acesso)} /></div>
             <div className={styles.movQuem}>{primeiroNome(m.registradaPor?.nome)}<small>{hora}</small></div>
           </li>;
         })}</ul>
@@ -47,13 +49,14 @@ export function MovimentacoesDoEstoque({ dias, hoje, aoAbrir }: { dias: ListarMo
 }
 
 /** Detalhe da movimentação: cabeçalho e botões padrão. Movimentação não se edita; corrige-se com um ajuste. */
-export function DetalheDaMovimentacao({ m, aoFechar, aoVerItem }: { m: Movimentacao; aoFechar: () => void; aoVerItem: (id: string) => void }) {
+export function DetalheDaMovimentacao({ m, acesso, aoFechar, aoVerItem }: { m: Movimentacao; acesso: AcessoDoEstoque; aoFechar: () => void; aoVerItem: (id: string) => void }) {
   const tipo = rotulosDoTipoDeMovimentacao[m.tipo];
   const Icone = ICONE_DO_TIPO[m.tipo];
   const depois = Number(m.saldoDepois);
   const antes = depois - deltaDaMovimentacao(m);
   const rotuloDoTexto = m.tipo === "entrada" ? "Origem" : m.tipo === "ajuste" ? "Motivo" : "Destino";
-  const texto = m.tipo === "ajuste" ? m.observacao ?? m.origemOuDestino : m.origemOuDestino;
+  const texto = m.tipo === "ajuste" ? m.observacao ?? m.origemOuDestino : <Vinculos partes={partesDaOrigem(m, acesso)} />;
+  const pedidoHref = m.pedido ? hrefDoPedido(m.pedido.id, acesso) : null;
   return <Dialog title={`${tipo} · ${m.item.nome}`} description={`${diaPorExtenso(m.data)} às ${horaEmManaus(m.registradaEm)}${m.registradaPor ? ` · ${m.registradaPor.nome}` : ""}`}
     icon={<Icone size={20} />} onClose={aoFechar} cancelText="Fechar"
     footer={<Button icon={<Package size={16} />} onClick={() => aoVerItem(m.item.id)}>Ver item</Button>}>
@@ -68,8 +71,8 @@ export function DetalheDaMovimentacao({ m, aoFechar, aoVerItem }: { m: Movimenta
       <dl className={styles.movDados}>
         <div><dt>Item</dt><dd><button type="button" className={styles.link} onClick={() => aoVerItem(m.item.id)}>{m.item.nome}</button><small>{m.item.codigo}</small></dd></div>
         <div><dt>Empresa</dt><dd><EmpresaComPonto empresa={m.item.empresa} /></dd></div>
-        <div><dt>{rotuloDoTexto}</dt><dd>{texto}</dd></div>
-        <div><dt>Pedido de compra</dt><dd>{m.pedido ? <Link className={styles.link} href={hrefDoPedido(m.pedido.id)}>{numeroDoPedido(m.pedido.numero)}</Link> : "—"}</dd></div>
+        <div><dt>{rotuloDoTexto}</dt><dd><span>{texto}</span></dd></div>
+        <div><dt>Pedido de compra</dt><dd>{m.pedido ? <Vinculos partes={[{ texto: numeroDoPedido(m.pedido.numero), href: pedidoHref }]} /> : "—"}</dd></div>
         {m.custoUnitario ? <div><dt>Custo unitário</dt><dd>{valorEmReais(m.custoUnitario)}</dd></div> : null}
         {m.valor && semReserva(m) ? <div><dt>Valor</dt><dd>{valorEmReais(m.valor)}</dd></div> : null}
         {m.observacao && m.tipo !== "ajuste" ? <div><dt>Observação</dt><dd>{m.observacao}</dd></div> : null}

@@ -26,6 +26,7 @@ import {
   type TipoRegistravel,
   type VisaoDoEstoque,
 } from "../../lib/estoque";
+import type { AcessoDoEstoque } from "../../lib/estoque-acesso";
 import { BarraFixa, CampoDaFolha, classeDaPaginaComBarra } from "../barra-fixa";
 import estilosClientes from "../clientes/tela-clientes.module.css";
 import estilosPipelines from "../pipelines/tela-pipelines.module.css";
@@ -53,7 +54,7 @@ const VISOES: { id: VisaoDoEstoque; rotulo: string; icone: typeof List }[] = [
  * lista, as movimentações por dia, a ficha do item e o registro de entrada,
  * saída e ajuste. Filtros, visão e ficha vão no endereço.
  */
-export function EstoqueView({ filtros, itens, todosOsItens, movimentacoes, ficha, fichaNaoEncontrada, hoje, podeAbrirPedido }: {
+export function EstoqueView({ filtros, itens, todosOsItens, movimentacoes, ficha, fichaNaoEncontrada, hoje, acesso }: {
   filtros: FiltrosDeEstoque;
   itens: ItemDeEstoqueNaLista[];
   /** Todos os itens ativos, sem filtro: alimentam os menus de item. */
@@ -62,7 +63,7 @@ export function EstoqueView({ filtros, itens, todosOsItens, movimentacoes, ficha
   ficha: ItemDeEstoque | null;
   fichaNaoEncontrada: boolean;
   hoje: string;
-  podeAbrirPedido: boolean;
+  acesso: AcessoDoEstoque;
 }) {
   const router = useRouter();
   const [busca, setBusca] = useState(filtros.busca ?? "");
@@ -109,7 +110,7 @@ export function EstoqueView({ filtros, itens, todosOsItens, movimentacoes, ficha
   if (movimentos) {
     conteudo = !movimentacoes || movimentacoes.dias.length === 0
       ? vazio("Nenhuma movimentação encontrada", "Entradas, saídas, ajustes e reservas aparecem aqui, com data e autoria.")
-      : <MovimentacoesDoEstoque dias={movimentacoes.dias} hoje={hoje} aoAbrir={setDetalhe} />;
+      : <MovimentacoesDoEstoque dias={movimentacoes.dias} hoje={hoje} acesso={acesso} aoAbrir={setDetalhe} />;
   } else if (itens.length === 0) {
     conteudo = filtrado ? vazio("Nenhum item encontrado", "Não há itens com a busca ou os filtros atuais.") : vazio("Nenhum item no estoque ainda", "Cadastre o primeiro item ou dê entrada pelo recebimento de uma compra.");
   } else {
@@ -185,9 +186,9 @@ export function EstoqueView({ filtros, itens, todosOsItens, movimentacoes, ficha
 
     <section id="estoque-conteudo" className={`${estilosClientes.conteudo} ${styles.conteudo}`} role="tabpanel" aria-labelledby={`estoque-visao-${filtros.visao}`}>{conteudo}</section>
 
-    {ficha ? <FichaDoItem key={ficha.id} item={ficha} aoFechar={fecharFicha} aoEditar={() => setEditando(true)}
-      aoMovimentar={(tipo) => setRegistrando({ item: naLista(ficha.id) ?? ficha, tipo })} aoRepor={podeAbrirPedido ? () => setRepondo(true) : undefined} /> : null}
-    {detalhe ? <DetalheDaMovimentacao m={detalhe} aoFechar={() => setDetalhe(null)} aoVerItem={abrirFicha} /> : null}
+    {ficha ? <FichaDoItem key={ficha.id} item={ficha} acesso={acesso} aoFechar={fecharFicha} aoEditar={() => setEditando(true)}
+      aoMovimentar={(tipo) => setRegistrando({ item: naLista(ficha.id) ?? ficha, tipo })} aoRepor={acesso.criaPedidos ? () => setRepondo(true) : undefined} /> : null}
+    {detalhe ? <DetalheDaMovimentacao m={detalhe} acesso={acesso} aoFechar={() => setDetalhe(null)} aoVerItem={abrirFicha} /> : null}
     {registrando ? <RegistrarMovimentacao itens={todosOsItens} itemInicial={registrando.item} tipoInicial={registrando.tipo} aoCancelar={() => setRegistrando(null)}
       aoCadastrarItem={() => { setRegistrando(null); setCriando(true); }}
       aoRegistrar={(m) => { setRegistrando(null); setAviso(`${m.tipo === "entrada" ? "Entrada registrada" : m.tipo === "saida" ? "Saída registrada" : "Ajuste registrado"}: ${m.item.nome}.`); router.refresh(); }} /> : null}

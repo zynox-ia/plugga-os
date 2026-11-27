@@ -4,8 +4,9 @@ import { rotulosDaCategoriaDeItemDeEstoque, type ItemDeEstoque } from "@plugga/s
 import { Clock3, Download, Package, Pencil, ShoppingCart, Upload, X } from "lucide-react";
 import Link from "next/link";
 
-import { diaCurto, hrefDeCompras, hojeEmManaus, numeroDoPedido, valorEmReais } from "../../lib/compras";
+import { diaCurto, hojeEmManaus, numeroDoPedido, valorEmReais } from "../../lib/compras";
 import { diaPorExtenso, primeiroNome, qtd, qtdComSinal, qtdOuTraco, type TipoRegistravel } from "../../lib/estoque";
+import { hrefDoPedido, type AcessoDoEstoque } from "../../lib/estoque-acesso";
 import { FecharModal, Modal } from "../modal";
 import estilosFicha from "../pipelines/detalhes-do-lead-modal.module.css";
 import { EmpresaComPonto } from "../suprimentos/empresa";
@@ -38,12 +39,13 @@ function GraficoDoItem({ item }: { item: ItemDeEstoque }) {
  * destaque, nível, aviso de abaixo do mínimo com "Abrir pedido de compra",
  * gráfico de 8 semanas, pedidos que reservam e últimas movimentações.
  */
-export function FichaDoItem({ item, aoFechar, aoMovimentar, aoEditar, aoRepor }: {
+export function FichaDoItem({ item, acesso, aoFechar, aoMovimentar, aoEditar, aoRepor }: {
   item: ItemDeEstoque;
+  acesso: AcessoDoEstoque;
   aoFechar: () => void;
   aoMovimentar: (tipo: TipoRegistravel) => void;
   aoEditar: () => void;
-  /** Ausente quando a pessoa não abre pedidos de compra. */
+  /** Ausente quando a pessoa não cria pedidos de compra. */
   aoRepor?: () => void;
 }) {
   const s = item.saldo;
@@ -87,11 +89,11 @@ export function FichaDoItem({ item, aoFechar, aoMovimentar, aoEditar, aoRepor }:
           <GraficoDoItem item={item} />
           <section className={styles.secaoFicha} aria-label="Reservas">
             <h3>Pedidos que reservam este item</h3>
-            {reservas.length ? <ul className={styles.reservas}>{reservas.map((r) => <li key={r.id}>
+            {reservas.length ? <ul className={styles.reservas}>{reservas.map((r) => { const href = hrefDoPedido(r.pedido.id, acesso); return <li key={r.id}>
               <Clock3 size={14} aria-hidden="true" />
               <span><strong>{qtd(r.quantidade, item.unidade)}</strong> · {numeroDoPedido(r.pedido.numero)} · {r.destino}<small> · desde {diaPorExtenso(hojeEmManaus(new Date(r.reservadaEm)))}</small></span>
-              <Link className="button button--secondary ui-button ui-button--sm" href={hrefDeCompras({ visao: "lista", situacao: "todos" }, r.pedido.id)}><span className="ui-button-label">Abrir pedido</span></Link>
-            </li>)}</ul> : <p className={styles.muted}>Nenhuma reserva. Quando um pedido de compra for atendido pelo estoque, a quantidade fica reservada aqui até a retirada.</p>}
+              {href ? <Link className="button button--secondary ui-button ui-button--sm" href={href}><span className="ui-button-label">Abrir pedido</span></Link> : null}
+            </li>; })}</ul> : <p className={styles.muted}>Nenhuma reserva. Quando um pedido de compra for atendido pelo estoque, a quantidade fica reservada aqui até a retirada.</p>}
           </section>
           <section className={styles.secaoFicha} aria-label="Movimentações">
             <h3>Últimas movimentações</h3>

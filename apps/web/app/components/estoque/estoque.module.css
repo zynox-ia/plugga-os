@@ -120,7 +120,8 @@
 .movQtd { display: grid; font-weight: 500; font-variant-numeric: tabular-nums; }
 .movQtdReserva { color: var(--ui-muted); }
 .movSaldo { display: grid; font-variant-numeric: tabular-nums; }
-.movOrigem { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Quebra a linha em vez de cortar: o pedido no fim do texto tem link próprio. */
+.movOrigem { min-width: 0; overflow-wrap: anywhere; }
 .movQuem { display: grid; }
 
 /* Detalhe da movimentação */

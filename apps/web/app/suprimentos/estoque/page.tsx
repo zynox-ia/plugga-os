@@ -1,9 +1,9 @@
 import { EstadoDaApi } from "../../components/estado-da-api";
 import { EstoqueView } from "../../components/estoque/estoque-view";
 import { fetchItemDeEstoque, fetchItensDeEstoque, fetchMovimentacoesDeEstoque } from "../../lib/api";
-import { podeAbrirPagina } from "../../lib/acesso-paginas";
 import { hojeEmManaus } from "../../lib/compras";
 import { consultaDeItens, consultaDeMovimentacoes, ehUuid, lerFiltrosDeEstoque } from "../../lib/estoque";
+import { acessoDoEstoque } from "../../lib/estoque-acesso";
 import { exigirPagina } from "../../lib/exigir-pagina";
 
 export default async function EstoquePage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
@@ -34,7 +34,7 @@ export default async function EstoquePage({ searchParams }: { searchParams: Prom
       ficha={ficha?.ok ? ficha.dados : null}
       fichaNaoEncontrada={Boolean(parametros.item) && !(ficha?.ok)}
       hoje={hojeEmManaus()}
-      podeAbrirPedido={podeAbrirPagina(sessao.acesso, "/suprimentos/compras")}
+      acesso={acessoDoEstoque(sessao.acesso)}
     />
   );
 }
