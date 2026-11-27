@@ -1,8 +1,12 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { cpSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { listarLancamentosQuerySchema } from "@plugga/shared";
+import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { AuditAppender } from "../src/audit/audit-appender.js";
@@ -580,28 +584,11 @@ describe.skipIf(!HABILITADO)("conciliação: extrato bancário no Postgres", () 
   }, PRAZO_MS);
 
   // ---- a linha de origem no banco (revisão de 27/11/2026)
-  /**
-   * A migration de verdade (o arquivo), como dono do banco, numa transação: os comandos um a um, sem o
-   * BEGIN/COMMIT dela. É idempotente, então rodar de novo no banco de teste já migrado não muda o resto.
-   */
-  const aplicarMigration = async (nome: string) => {
-    const sql = readFileSync(path.resolve(__dirname, "../prisma/migrations", nome, "migration.sql"), "utf8");
-    const comandos = sql.split(/;\s*\n/).map((c) => c.replace(/^\s*--.*$/gm, "").trim()).filter((c) => c && !/^(BEGIN|COMMIT)$/i.test(c));
-    await prisma.$transaction(async (tx) => { for (const comando of comandos) await tx.$executeRawUnsafe(comando); });
-  };
   /** O índice ou o gatilho recusou: o Postgres diz o código (23505 unicidade, 23514 check). */
   const codigoDoPostgres = async (fazer: () => Promise<unknown>) => {
     try { await fazer(); return null; } catch (erro) { return String((erro as { meta?: { code?: string } }).meta?.code ?? (erro as Error).message.match(/Code: `(\w+)`/)?.[1] ?? (erro as Error).message); }
   };
   const origemDe = async (lancamentoId: string) => (await prisma.$queryRaw<{ origem: string | null }[]>`SELECT movimento_de_origem_id::text AS origem FROM public.lancamentos WHERE id = ${lancamentoId}::uuid`)[0]?.origem ?? null;
-  /** Como dono do banco, sem o gatilho de imutabilidade: o estado que a migration anterior pode ter deixado. */
-  const forcarOrigem = (lancamentoId: string, movimentoId: string | null) => prisma.$transaction(async (tx) => {
-    await tx.$executeRawUnsafe("ALTER TABLE public.lancamentos DISABLE TRIGGER lancamentos_imutaveis");
-    await tx.$executeRaw`UPDATE public.lancamentos SET movimento_de_origem_id = ${movimentoId}::uuid WHERE id = ${lancamentoId}::uuid`;
-    await tx.$executeRawUnsafe("ALTER TABLE public.lancamentos ENABLE TRIGGER lancamentos_imutaveis");
-  });
-  const gerenteDaConciliacao = () => ({ ...principal, acesso: { plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "gerente", telas: ["financeiro.conciliacao"] }] } } as AuthPrincipal);
-
   it("origem: o índice é de um vivo por linha (o cancelado libera), a origem gravada não muda e o RLS de quem atualiza vale", async () => {
     await repositorio.importar(conta, arquivo("a0a1"), lido([mov("o0a", "2028-02-10", "-31.00", `${marca} PIX O0A`, "DEBIT")]), principal, AGORA);
     const linha = await linhaDe("o0a");
@@ -622,40 +609,92 @@ describe.skipIf(!HABILITADO)("conciliação: extrato bancário no Postgres", () 
     expect(semConciliacao).toBe(0);
     expect(await origemDe(entrada)).toBeNull();
   }, PRAZO_MS);
+});
 
-  it("origem: a migration corretiva limpa a origem sem prova e preenche só a comprovada (criada e conciliada na mesma chamada, nunca desfeita)", async () => {
-    const depois = new Date(AGORA.getTime() + 3_600_000);
-    const antes = new ConciliacaoService(repositorio, {} as never, () => AGORA);
-    const mais = new ConciliacaoService(repositorio, {} as never, () => depois);
-    const gerente = gerenteDaConciliacao();
-    await repositorio.importar(conta, arquivo("b0b2"), lido([
-      mov("o1a", "2028-03-10", "-100.00", `${marca} PIX O1A`, "DEBIT"),
-      mov("o1b", "2028-03-11", "-100.00", `${marca} PIX O1B`, "DEBIT"),
-      mov("o1x", "2028-03-20", "-50.00", `${marca} TRANSF O1X`, "DEBIT"),
-      mov("o1s", "2028-03-25", "-70.00", `${marca} PIX O1S`, "DEBIT"),
-    ]), principal, AGORA);
-    const [a, b, x, s] = [await linhaDe("o1a"), await linhaDe("o1b"), await linhaDe("o1x"), await linhaDe("o1s")];
-    // Nasceu da A, conciliada na criação; desfeita e conciliada com a B mais tarde. A migration anterior gravaria B.
-    const l = await naSessao(() => antes.criarLancamento({ tipo: "saida", movimentoId: a.id, fornecedorId: ids.fornecedor, descricao: `${marca} nasceu da A`, conciliar: true }, gerente));
-    await naSessao(() => antes.desfazer(a.id, "Par errado", gerente));
-    await naSessao(() => mais.conciliar(b.id, l.lancamento.id, gerente));
-    await forcarOrigem(l.lancamento.id, b.id);
-    // A perna da transferência pelo extrato (comprovável), como se tivesse nascido antes da coluna.
-    const t = await naSessao(() => antes.transferenciaDoExtrato({ movimentoId: x.id, outraContaId: ids.outraConta }, gerente));
-    await forcarOrigem(t.saida.id, null);
-    // Criada sem conciliar: a origem foi gravada na criação e não tem par: fica.
-    const solta = await naSessao(() => antes.criarLancamento({ tipo: "saida", movimentoId: s.id, fornecedorId: ids.fornecedor, descricao: `${marca} solta`, valor: "65.00", conciliar: false }, gerente));
+/**
+ * As migrations da origem (PLU-339) num banco EXCLUSIVO, criado e removido aqui no servidor de teste:
+ * migration nenhuma se reaplica no banco compartilhado. O banco sobe até antes da coluna, ganha
+ * lançamentos conciliados (inclusive os que parecem "criados e conciliados na mesma chamada", com o
+ * mesmo instante), recebe as duas primeiras, grava uma origem pela aplicação e recebe a terceira.
+ */
+describe.skipIf(!HABILITADO)("origem da linha do extrato: as migrations num banco só deste teste", () => {
+  const PRAZO = 300_000;
+  const PRIMEIRA = "20261127150339_lancamento_da_linha_do_extrato";
+  const SEGUNDA = "20261127161339_origem_so_comprovada";
+  const TERCEIRA = "20261127190339_origem_so_da_aplicacao";
+  const raiz = path.resolve(__dirname, "../prisma/migrations");
+  const nome = `plugga_plu339_${randomBytes(4).toString("hex")}`;
+  const urlDe = (db: string) => { const u = new URL(process.env.DATABASE_URL!); u.pathname = `/${db}`; u.search = ""; return u.toString(); };
+  const pasta = mkdtempSync(path.join(tmpdir(), "plu339-migrations-"));
+  const admin = new PrismaClient({ datasourceUrl: urlDe("postgres") });
+  let banco: PrismaClient;
 
-    // O estado que a 20261127150339 deixa: B como origem de quem nasceu da A, e a perna sem origem.
-    expect([await origemDe(l.lancamento.id), await origemDe(t.saida.id)]).toEqual([b.id, null]);
+  /** `prisma migrate deploy` no banco exclusivo, só com as migrations anteriores à PRIMEIRA, ou até `ate`. */
+  const migrarAte = (ate: string | null) => {
+    rmSync(path.join(pasta, "migrations"), { recursive: true, force: true });
+    mkdirSync(path.join(pasta, "migrations"));
+    for (const m of readdirSync(raiz)) {
+      if (m === "migration_lock.toml" || (ate === null ? m < PRIMEIRA : m <= ate)) cpSync(path.join(raiz, m), path.join(pasta, "migrations", m), { recursive: true });
+    }
+    execFileSync(process.execPath, [createRequire(import.meta.url).resolve("prisma/build/index.js"), "migrate", "deploy"], { cwd: pasta, env: { ...process.env, DATABASE_URL: urlDe(nome) }, stdio: "pipe" });
+  };
+  const origemDe = async (id: string) => (await banco.$queryRaw<{ origem: string | null }[]>`SELECT movimento_de_origem_id::text AS origem FROM public.lancamentos WHERE id = ${id}::uuid`)[0]?.origem ?? null;
+  const ID = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 
-    await aplicarMigration("20261127161339_origem_so_comprovada");
+  beforeAll(async () => {
+    cpSync(path.resolve(__dirname, "../prisma/schema.prisma"), path.join(pasta, "schema.prisma"));
+    writeFileSync(path.join(pasta, "prisma.config.ts"), 'export default { schema: "schema.prisma", migrations: { path: "migrations" } };\n');
+    await admin.$executeRawUnsafe(`CREATE DATABASE "${nome}"`);
+    await admin.$executeRawUnsafe(`ALTER DATABASE "${nome}" SET plugga.ambiente = 'local'`);
+    migrarAte(null);
+    banco = new PrismaClient({ datasourceUrl: urlDe(nome) });
+  }, PRAZO);
 
-    expect(await origemDe(l.lancamento.id)).toBeNull();
-    expect(await origemDe(t.saida.id)).toBe(x.id);
-    expect(await origemDe(t.entrada.id)).toBeNull();
-    expect(await origemDe(solta.lancamento.id)).toBe(s.id);
-    // E o gatilho voltou: a origem segue sem mudar.
-    expect(await codigoDoPostgres(() => prisma.$executeRaw`UPDATE public.lancamentos SET movimento_de_origem_id = NULL WHERE id = ${t.saida.id}::uuid`)).toBe("23514");
-  }, PRAZO_MS);
+  afterAll(async () => {
+    await banco?.$disconnect();
+    await admin.$executeRawUnsafe(`DROP DATABASE IF EXISTS "${nome}" WITH (FORCE)`);
+    await admin.$disconnect();
+    rmSync(pasta, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  }, PRAZO);
+
+  it("nenhum lançamento anterior à coluna termina com origem; o que a aplicação gravou depois fica", async () => {
+    const instante = "2026-10-01 10:00:00-04";
+    // Os conciliados de antes da coluna, como o dono do banco (sem gatilhos nem FKs, como um dado antigo).
+    await banco.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe("SET LOCAL session_replication_role = replica");
+      await tx.$executeRawUnsafe(`INSERT INTO companies (id, name) VALUES ('plugga', 'Plugga') ON CONFLICT DO NOTHING`);
+      await tx.$executeRawUnsafe(`INSERT INTO fornecedores (id, nome, categoria, updated_at) VALUES ('${ID(1)}', 'Fornecedor', 'servico', now())`);
+      await tx.$executeRawUnsafe(`INSERT INTO contas_correntes (id, company_id, nome, updated_at) VALUES ('${ID(2)}', 'plugga', 'Conta A', now()), ('${ID(3)}', 'plugga', 'Conta B', now())`);
+      await tx.$executeRawUnsafe(`INSERT INTO extratos_bancarios (id, company_id, conta_corrente_id, origem, arquivo_chave, arquivo_nome, arquivo_tamanho, arquivo_sha256, periodo_de, periodo_ate, movimentos, novos)
+        VALUES ('${ID(4)}', 'plugga', '${ID(2)}', 'ofx', 'financeiro/extratos/plugga/${ID(2)}/e.ofx', 'e.ofx', 1, repeat('a', 64), now(), now(), 3, 3)`);
+      await tx.$executeRawUnsafe(`INSERT INTO transferencias (id, company_id, conta_origem_id, conta_destino_id, valor, dia, descricao) VALUES ('${ID(5)}', 'plugga', '${ID(2)}', '${ID(3)}', 50, '${instante}', 'Transferência manual')`);
+      // 10: criado na Conciliação e conciliado no mesmo instante (a "prova" da segunda migration);
+      // 11: perna de uma transferência MANUAL, conciliada depois numa operação à parte, com o mesmo instante;
+      // 12: avulsa conciliada, nunca nasceu de linha.
+      await tx.$executeRawUnsafe(`INSERT INTO lancamentos (id, tipo, numero, company_id, fornecedor_id, conta_corrente_id, descricao, valor, vencimento, etapa, origem, transferencia_id, aprovado_em, forma, pago_em, pagamento_registrado_em, conciliado_em, updated_at) VALUES
+        ('${ID(10)}', 'saida', 9010, 'plugga', '${ID(1)}', '${ID(2)}', 'criado na conciliação', 100, '${instante}', 'conciliada', 'conciliacao', NULL, '${instante}', 'pix', '${instante}', '${instante}', '${instante}', now()),
+        ('${ID(11)}', 'saida', 9011, 'plugga', NULL, '${ID(2)}', 'perna manual', 50, '${instante}', 'conciliada', 'transferencia', '${ID(5)}', '${instante}', 'transferencia', '${instante}', '${instante}', '${instante}', now()),
+        ('${ID(12)}', 'saida', 9012, 'plugga', '${ID(1)}', '${ID(2)}', 'avulsa', 30, '${instante}', 'conciliada', 'avulsa', NULL, '${instante}', 'pix', '${instante}', '${instante}', '${instante}', now())`);
+      await tx.$executeRawUnsafe(`INSERT INTO movimentos_do_extrato (id, company_id, conta_corrente_id, extrato_id, dia, valor, descricao, identificador, estado, lancamento_id, conciliado_em) VALUES
+        ('${ID(20)}', 'plugga', '${ID(2)}', '${ID(4)}', '${instante}', -100, 'linha 20', 'l20', 'conciliado', '${ID(10)}', '${instante}'),
+        ('${ID(21)}', 'plugga', '${ID(2)}', '${ID(4)}', '${instante}', -50, 'linha 21', 'l21', 'conciliado', '${ID(11)}', '${instante}'),
+        ('${ID(22)}', 'plugga', '${ID(2)}', '${ID(4)}', '${instante}', -30, 'linha 22', 'l22', 'conciliado', '${ID(12)}', '${instante}'),
+        ('${ID(23)}', 'plugga', '${ID(2)}', '${ID(4)}', '${instante}', -70, 'linha 23', 'l23', 'pendente', NULL, NULL)`);
+    });
+
+    // As duas primeiras: o par atual vira origem (a primeira) e a "prova" alcança a perna manual (a segunda).
+    migrarAte(SEGUNDA);
+    expect([await origemDe(ID(10)), await origemDe(ID(11)), await origemDe(ID(12))]).toEqual([ID(20), ID(21), null]);
+
+    // Depois da coluna, a aplicação grava a origem de quem cria a partir da linha 23.
+    await banco.$executeRawUnsafe(`INSERT INTO lancamentos (id, tipo, numero, company_id, fornecedor_id, conta_corrente_id, descricao, valor, vencimento, etapa, origem, aprovado_em, forma, pago_em, pagamento_registrado_em, updated_at)
+      VALUES ('${ID(13)}', 'saida', 9013, 'plugga', '${ID(1)}', '${ID(2)}', 'criado sem conciliar', 65, '${instante}', 'paga', 'conciliacao', '${instante}', 'pix', '${instante}', now(), now())`);
+    await banco.$executeRawUnsafe(`UPDATE lancamentos SET movimento_de_origem_id = '${ID(23)}' WHERE id = '${ID(13)}'`);
+
+    migrarAte(TERCEIRA);
+    expect([await origemDe(ID(10)), await origemDe(ID(11)), await origemDe(ID(12))]).toEqual([null, null, null]);
+    expect(await origemDe(ID(13))).toBe(ID(23));
+    // O gatilho voltou ligado: a origem gravada segue sem mudar.
+    await expect(banco.$executeRawUnsafe(`UPDATE lancamentos SET movimento_de_origem_id = NULL WHERE id = '${ID(13)}'`)).rejects.toThrow(/23514|origem do lançamento não muda/);
+  }, PRAZO);
 });
