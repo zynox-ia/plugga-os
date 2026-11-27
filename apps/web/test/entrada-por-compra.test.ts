@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { dicaDoPedido, opcaoDoPedido, problemaDaQuantidadeDoPedido } from "../app/lib/entrada-por-compra.ts";
+import { dicaDoPedido, opcaoDoPedido, problemaDaEscolhaDoPedido, problemaDaQuantidadeDoPedido } from "../app/lib/entrada-por-compra.ts";
 
 const pedido = { id: "11111111-1111-4111-8111-111111111111", numero: 12, titulo: "Cabos da obra", etapa: "retirada" as const, pedida: "10.000", recebida: "4.000", falta: "6.000" };
 
@@ -13,9 +13,21 @@ describe("Estoque: entrada por compra ligada ao pedido (PLU-333)", () => {
   it("diz o estado da lista em vez de esconder a falha como lista vazia", () => {
     assert.equal(dicaDoPedido("sem_item", null, "m"), "Escolha o item para ver os pedidos com ele.");
     assert.equal(dicaDoPedido("carregando", null, "m"), "Carregando os pedidos deste item…");
-    assert.match(dicaDoPedido("erro", null, "m"), /Não foi possível carregar os pedidos/);
+    assert.equal(dicaDoPedido("erro", null, "m"), "Não foi possível carregar os pedidos. Recarregue a lista ou escolha Sem pedido.");
     assert.equal(dicaDoPedido([], null, "m"), "Nenhum pedido em aberto espera este item.");
     assert.equal(dicaDoPedido([pedido], pedido, "m"), "Faltam 6 m de 10 m pedidos deste item.");
+  });
+
+  it("o pedido escolhido que não dá para conferir bloqueia o envio, em vez de virar entrada avulsa (revisão leva 3)", () => {
+    // Sem pedido é escolha explícita: passa com qualquer estado da lista.
+    assert.equal(problemaDaEscolhaDoPedido("", "erro"), null);
+    assert.equal(problemaDaEscolhaDoPedido("", []), null);
+    // Lista ainda carregando (voltou para Entrada) ou com falha.
+    assert.equal(problemaDaEscolhaDoPedido(pedido.id, "carregando"), "aguarde a lista de pedidos carregar.");
+    assert.match(problemaDaEscolhaDoPedido(pedido.id, "erro")!, /recarregue a lista ou escolha Sem pedido/);
+    // Lista recarregada sem o pedido (recebeu tudo, foi cancelado): seleção invalidada.
+    assert.match(problemaDaEscolhaDoPedido(pedido.id, [{ ...pedido, id: "22222222-2222-4222-8222-222222222222" }])!, /não aceita mais entrada/);
+    assert.equal(problemaDaEscolhaDoPedido(pedido.id, [pedido]), null);
   });
 
   it("não deixa a quantidade passar do que o pedido espera", () => {
