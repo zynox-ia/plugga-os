@@ -1,4 +1,17 @@
-import { companyKeys, type CompanyKey, type ContaCorrente, type LancamentoNaConciliacao, type MovimentoDoExtrato, type PainelDaConciliacao } from "@plugga/shared";
+import {
+  companyKeys,
+  VALOR_MAXIMO_DO_LANCAMENTO,
+  type CompanyKey,
+  type ContaCorrente,
+  type CriarLancamentoDoExtrato,
+  type FormaDoLancamento,
+  type LancamentoNaConciliacao,
+  type MovimentoDoExtrato,
+  type PainelDaConciliacao,
+  type TransferenciaDoExtrato,
+} from "@plugga/shared";
+
+import { decimalDigitado, valorEmReais } from "./compras.ts";
 
 /**
  * Conciliação bancária (PLU-339): o painel lê a API com conta opcional e um
@@ -125,6 +138,90 @@ export function problemaDoMotivo(motivo: string): string | null {
   const texto = motivo.trim();
   if (texto.length < 3) return "informe o motivo, com pelo menos 3 letras.";
   return texto.length > 500 ? "use até 500 caracteres." : null;
+}
+
+// ---------------------------------------------------------------- criação guiada (C5 e C6)
+
+type LinhaSemPar = Pick<MovimentoDoExtrato, "id" | "valor" | "dia" | "descricao">;
+export type TipoDaCriacao = "receita" | "despesa" | "transferencia";
+
+const debitoDa = (linha: Pick<MovimentoDoExtrato, "valor">): boolean => linha.valor.trim().startsWith("-");
+const absolutoDa = (linha: Pick<MovimentoDoExtrato, "valor">): string => deCentavos(centavos(linha.valor.replace(/^-/, "")));
+
+/**
+ * O que a linha sem par pode virar. Crédito: receita (quem tem a tela) ou a entrada de uma
+ * transferência. Débito: despesa ou a saída de uma transferência. A despesa nasce paga sem a
+ * aprovação F2 e a transferência mexe em duas contas: as duas são da gerência (API). Sem outra
+ * conta ativa da mesma empresa, não há transferência.
+ */
+export function opcoesDeCriacao(linha: Pick<MovimentoDoExtrato, "valor">, gerente: boolean, outrasContas: number): TipoDaCriacao[] {
+  const transferencia: TipoDaCriacao[] = gerente && outrasContas > 0 ? ["transferencia"] : [];
+  if (debitoDa(linha)) return gerente ? ["despesa", ...transferencia] : [];
+  return ["receita", ...transferencia];
+}
+
+export type CamposDaCriacao = {
+  descricao: string;
+  /** Como se digita ("1.234,56"); vem com o valor da linha. */
+  valor: string;
+  clienteId: string;
+  fornecedorId: string;
+  categoriaId: string;
+  /** "2026-11"; vazio, a API usa o mês da linha. */
+  competencia: string;
+  forma: FormaDoLancamento | "";
+};
+
+/** O valor da linha como se digita, para o campo já vir preenchido. */
+export const valorDaLinhaParaDigitar = (linha: Pick<MovimentoDoExtrato, "valor">): string =>
+  Number(absolutoDa(linha)).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/**
+ * O corpo do `POST financeiro/conciliacao/lancamento`. Com o valor da linha, concilia; com outro,
+ * vai `conciliar: false` com o valor ("Criar sem conciliar"): a API recusa conciliar valor diferente.
+ */
+export function corpoDaCriacao(tipo: "receita" | "despesa", c: CamposDaCriacao, linha: LinhaSemPar): { corpo?: CriarLancamentoDoExtrato; porCampo: Record<string, string>; conciliar: boolean } {
+  const porCampo: Record<string, string> = {};
+  const descricao = c.descricao.trim();
+  if (!descricao) porCampo.descricao = "informe a descrição.";
+  else if (descricao.length > 200) porCampo.descricao = "use até 200 caracteres.";
+  const valor = decimalDigitado(c.valor);
+  if (!valor || Number(valor) <= 0) porCampo.valor = "informe o valor, como 1.234,56.";
+  else if (Number(valor) > Number(VALOR_MAXIMO_DO_LANCAMENTO)) porCampo.valor = "o valor passa do máximo permitido.";
+  if (tipo === "receita") {
+    if (!c.clienteId) porCampo.clienteId = "escolha o cliente.";
+    if (!c.categoriaId) porCampo.categoriaId = "escolha a categoria de receita.";
+  } else if (!c.fornecedorId) porCampo.fornecedorId = "escolha o fornecedor.";
+  const conciliar = valor !== null && valor === absolutoDa(linha);
+  if (Object.keys(porCampo).length || !valor) return { porCampo, conciliar };
+  const comum = { movimentoId: linha.id, descricao, ...(conciliar ? {} : { valor }), conciliar };
+  const corpo: CriarLancamentoDoExtrato = tipo === "receita"
+    ? { tipo: "entrada", ...comum, clienteId: c.clienteId, categoriaId: c.categoriaId, ...(c.competencia ? { competencia: c.competencia } : {}) }
+    : { tipo: "saida", ...comum, fornecedorId: c.fornecedorId, ...(c.categoriaId ? { categoriaId: c.categoriaId } : {}), ...(c.forma ? { forma: c.forma } : {}) };
+  return { corpo, porCampo, conciliar };
+}
+
+/** O que acontece ao criar, dito antes do botão: o "Criar sem conciliar" muda o saldo, não o conciliado. */
+export function efeitoDaCriacao(tipo: "receita" | "despesa", conciliar: boolean, valorDaLinha: string): string {
+  if (conciliar) return `Nasce ${tipo === "receita" ? "recebida" : "paga"} no dia e na conta da linha, e já fica conciliada com ela.`;
+  const quem = tipo === "receita" ? "a receita nasce recebida" : "a conta nasce paga";
+  return `O valor é diferente do extrato (${valorEmReais(valorDaLinha.replace(/^-/, ""))}): ${quem} com o valor digitado e entra no saldo no Plugga OS, mas a linha do extrato continua sem par e o saldo conciliado não muda.`;
+}
+
+/** O corpo do `POST financeiro/conciliacao/transferencia`: o valor e o dia são os da linha. */
+export function corpoDaTransferencia(c: { outraContaId: string; descricao: string }, linha: Pick<MovimentoDoExtrato, "id">): { corpo?: TransferenciaDoExtrato; porCampo: Record<string, string> } {
+  const porCampo: Record<string, string> = {};
+  if (!c.outraContaId) porCampo.outraContaId = "escolha a outra conta.";
+  const descricao = c.descricao.trim();
+  if (descricao.length > 200) porCampo.descricao = "use até 200 caracteres.";
+  if (Object.keys(porCampo).length) return { porCampo };
+  return { porCampo, corpo: { movimentoId: linha.id, outraContaId: c.outraContaId, ...(descricao ? { descricao } : {}) } };
+}
+
+/** As duas pernas da transferência: o débito sai da conta da linha; o crédito entra nela. */
+export function efeitoDaTransferencia(linha: Pick<MovimentoDoExtrato, "valor" | "dia">, contaDaLinha: string, outraConta: string): string {
+  const [origem, destino] = debitoDa(linha) ? [contaDaLinha, outraConta] : [outraConta, contaDaLinha];
+  return `${valorEmReais(absolutoDa(linha))} saem de ${origem} e entram em ${destino}, no dia ${linha.dia.slice(8, 10)}/${linha.dia.slice(5, 7)}. A perna desta linha fica conciliada; a de ${outraConta} espera o extrato daquela conta.`;
 }
 
 /** Consulta do `GET /financeiro/conciliacao`. A conta, quando vem, é o id. */

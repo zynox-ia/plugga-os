@@ -3,9 +3,14 @@ import test from "node:test";
 
 import {
   consultaDaConciliacao,
+  corpoDaCriacao,
+  corpoDaTransferencia,
   correcaoDoPar,
+  efeitoDaCriacao,
+  efeitoDaTransferencia,
   hrefDaConciliacao,
   lerFiltrosDaConciliacao,
+  opcoesDeCriacao,
   periodoAceito,
   periodoDoMes,
   problemaDoMotivo,
@@ -82,4 +87,58 @@ test("desfazer pede o motivo com pelo menos 3 letras, como a API", () => {
   assert.equal(problemaDoMotivo(" ok "), "informe o motivo, com pelo menos 3 letras.");
   assert.equal(problemaDoMotivo("x".repeat(501)), "use até 500 caracteres.");
   assert.equal(problemaDoMotivo(" Par errado "), null);
+});
+
+const MOV = "22222222-2222-4222-8222-222222222222";
+const ID = "33333333-3333-4333-8333-333333333333";
+const debito = { id: MOV, valor: "-800.00", dia: "2026-11-26", descricao: "TRANSF ENTRE CONTAS" };
+const credito = { id: MOV, valor: "1250.00", dia: "2026-11-26", descricao: "TED RECEBIDA" };
+
+test("a linha sem par oferece receita no crédito e despesa no débito; transferência e despesa são da gerência", () => {
+  assert.deepEqual(opcoesDeCriacao(credito, false, 1), ["receita"]);
+  assert.deepEqual(opcoesDeCriacao(credito, true, 1), ["receita", "transferencia"]);
+  assert.deepEqual(opcoesDeCriacao(debito, true, 2), ["despesa", "transferencia"]);
+  // Sem outra conta ativa da mesma empresa, não há para onde transferir.
+  assert.deepEqual(opcoesDeCriacao(debito, true, 0), ["despesa"]);
+  // A despesa nasce paga sem a aprovação F2: quem não é gerente não cria pelo débito.
+  assert.deepEqual(opcoesDeCriacao(debito, false, 2), []);
+});
+
+const vazio = { descricao: "", valor: "", clienteId: "", fornecedorId: "", categoriaId: "", competencia: "", forma: "" } as const;
+
+test("a receita guiada pede cliente, categoria e descrição; com o valor da linha, concilia", () => {
+  assert.deepEqual(corpoDaCriacao("receita", { ...vazio, valor: "1.250,00" }, credito).porCampo, {
+    clienteId: "escolha o cliente.", categoriaId: "escolha a categoria de receita.", descricao: "informe a descrição.",
+  });
+  const { corpo, conciliar } = corpoDaCriacao("receita", { ...vazio, descricao: " TED do cliente ", valor: "1.250,00", clienteId: ID, categoriaId: ID, competencia: "2026-10" }, credito);
+  assert.equal(conciliar, true);
+  assert.deepEqual(corpo, { tipo: "entrada", movimentoId: MOV, descricao: "TED do cliente", clienteId: ID, categoriaId: ID, competencia: "2026-10", conciliar: true });
+});
+
+test("a despesa guiada só exige o fornecedor; com outro valor, nasce paga sem conciliar", () => {
+  assert.deepEqual(corpoDaCriacao("despesa", { ...vazio, descricao: "Aluguel", valor: "800,00" }, debito).porCampo, { fornecedorId: "escolha o fornecedor." });
+  const { corpo, conciliar } = corpoDaCriacao("despesa", { ...vazio, descricao: "Aluguel", valor: "780,00", fornecedorId: ID, forma: "pix" }, debito);
+  assert.equal(conciliar, false);
+  assert.deepEqual(corpo, { tipo: "saida", movimentoId: MOV, descricao: "Aluguel", fornecedorId: ID, forma: "pix", valor: "780.00", conciliar: false });
+  assert.equal(corpoDaCriacao("despesa", { ...vazio, descricao: "Aluguel", valor: "0", fornecedorId: ID }, debito).porCampo.valor, "informe o valor, como 1.234,56.");
+});
+
+/** O Intl separa "R$" do número com espaço que não quebra. */
+const sp = (texto: string | null) => texto?.replace(/\u00a0/g, " ") ?? null;
+
+test("o efeito explica o que muda: criar e conciliar, ou criar sem conciliar", () => {
+  assert.equal(sp(efeitoDaCriacao("receita", true, "1250.00")), "Nasce recebida no dia e na conta da linha, e já fica conciliada com ela.");
+  assert.equal(
+    sp(efeitoDaCriacao("despesa", false, "800.00")),
+    "O valor é diferente do extrato (R$ 800,00): a conta nasce paga com o valor digitado e entra no saldo no Plugga OS, mas a linha do extrato continua sem par e o saldo conciliado não muda.",
+  );
+});
+
+test("a transferência da linha leva a outra conta, e o débito sai da conta da linha", () => {
+  assert.deepEqual(corpoDaTransferencia({ outraContaId: "", descricao: "" }, debito).porCampo, { outraContaId: "escolha a outra conta." });
+  assert.deepEqual(corpoDaTransferencia({ outraContaId: ID, descricao: "  " }, debito).corpo, { movimentoId: MOV, outraContaId: ID });
+  assert.equal(sp(efeitoDaTransferencia(debito, "Itaú · Plugga", "Sicoob · Plugga")),
+    "R$ 800,00 saem de Itaú · Plugga e entram em Sicoob · Plugga, no dia 26/11. A perna desta linha fica conciliada; a de Sicoob · Plugga espera o extrato daquela conta.");
+  assert.equal(sp(efeitoDaTransferencia(credito, "Itaú · Plugga", "Sicoob · Plugga")),
+    "R$ 1.250,00 saem de Sicoob · Plugga e entram em Itaú · Plugga, no dia 26/11. A perna desta linha fica conciliada; a de Sicoob · Plugga espera o extrato daquela conta.");
 });

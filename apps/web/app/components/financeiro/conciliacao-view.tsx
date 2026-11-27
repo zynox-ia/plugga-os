@@ -25,7 +25,7 @@ import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "re
 
 import { lerErro } from "../../lib/clientes";
 import { decimalDigitado, hojeEmManaus, ROTULO_DA_EMPRESA, valorEmReais } from "../../lib/compras";
-import { correcaoDoPar, hrefDaConciliacao, periodoAceito, problemaDoMotivo, saldosDaConciliacao, semParDoResumo, type FiltrosDaConciliacao, type SaldosDaConciliacao } from "../../lib/conciliacao";
+import { correcaoDoPar, hrefDaConciliacao, opcoesDeCriacao, periodoAceito, problemaDoMotivo, saldosDaConciliacao, semParDoResumo, type FiltrosDaConciliacao, type SaldosDaConciliacao } from "../../lib/conciliacao";
 import { contasDaTela, detalheDaConta } from "../../lib/configuracoes-do-financeiro";
 import { hrefDosLancamentos } from "../../lib/financeiro";
 import { corpoDaCorrecao, valorEmDigitacao } from "../../lib/ficha-do-lancamento";
@@ -36,6 +36,7 @@ import estilosPipelines from "../pipelines/tela-pipelines.module.css";
 import { EmpresaComPonto, PontoDaEmpresa } from "../suprimentos/empresa";
 import { FiltroComBusca } from "../suprimentos/menu-com-busca";
 import { Alert, Button, Dialog, FileDropzone, SelectField, TextField, TextareaField } from "../ui";
+import { CriarDaLinha, outrasContasDaLinha } from "./criar-da-linha";
 import { EngrenagemDoFinanceiro } from "./engrenagem-do-financeiro";
 import styles from "./financeiro-telas.module.css";
 
@@ -134,6 +135,7 @@ export function ConciliacaoView({ filtros, painel, opcoes, gerente }: {
   const [tarifaId, setTarifaId] = useState<string | null>(null);
   const [pares, setPares] = useState<Record<string, string>>({});
   const [corrigirId, setCorrigirId] = useState<string | null>(null);
+  const [criarId, setCriarId] = useState<string | null>(null);
 
   const contas = opcoes ? contasDaTela(opcoes, filtros.empresa ?? null).filter((conta) => conta.ativa) : [];
   const porId = useMemo(() => {
@@ -179,6 +181,8 @@ export function ConciliacaoView({ filtros, painel, opcoes, gerente }: {
   const semPar = semParDoResumo(painel.resumo);
   const saldos = saldosDaConciliacao(contaAtual ? [contaAtual] : contas);
   const emCorrecao = painel.valorDiferente.find((par) => par.movimento.id === corrigirId);
+  const emCriacao = painel.semLancamento.find((movimento) => movimento.id === criarId);
+  const podeCriar = (movimento: MovimentoDoExtrato) => opcoes !== null && opcoesDeCriacao(movimento, gerente, outrasContasDaLinha(opcoes, movimento).length).length > 0;
 
   return <div className={`${estilosClientes.pagina} ${styles.pagina}`}>
     <header className={estilosPipelines.cabecalho}>
@@ -261,6 +265,7 @@ export function ConciliacaoView({ filtros, painel, opcoes, gerente }: {
               <div className={styles.mioloAcoes}>
                 {lancamento ? <Button size="sm" icon={<Link2 size={14} />} disabled={ocupado} onClick={() => void agir("/api/financeiro/conciliacao/conciliar", conciliarSchema, { movimentoId: movimento.id, lancamentoId: lancamento.id }, "Linha conciliada.")}>Conciliar</Button> : null}
                 {movimento.pareceTarifa ? <Button size="sm" icon={<Plus size={14} />} disabled={ocupado} onClick={() => setTarifaId(movimento.id)}>Criar tarifa</Button> : null}
+                {podeCriar(movimento) ? <Button size="sm" variant={lancamento || movimento.pareceTarifa ? "secondary" : "primary"} icon={<Plus size={14} />} disabled={ocupado} onClick={() => { setErro(null); setCriarId(movimento.id); }}>Criar lançamento</Button> : null}
                 <Button size="sm" variant="secondary" disabled={ocupado} onClick={() => void agir("/api/financeiro/conciliacao/marcar", marcarNaConciliacaoSchema, { movimentoId: movimento.id, marcado: movimento.estado !== "marcado" }, movimento.estado === "marcado" ? "Linha retomada." : "Linha marcada como pendente.")}>{movimento.estado === "marcado" ? "Retomar" : "Marcar pendente"}</Button>
               </div>
               {candidatos.length > 1 ? <SelectField label="Lançamento" value={escolhido} onChange={(valor) => setPares((atual) => ({ ...atual, [movimento.id]: valor }))} options={candidatos.map((item) => ({ value: item.id, label: `${item.codigo} · ${item.favorecido}` }))} /> : null}
@@ -347,6 +352,8 @@ export function ConciliacaoView({ filtros, painel, opcoes, gerente }: {
     {emCorrecao ? <CorrigirNoPar par={emCorrecao} valorInicial={correcaoDoPar(emCorrecao, gerente)?.valorInicial ?? ""} ocupado={ocupado} aoFechar={() => setCorrigirId(null)} aoCorrigir={(corpo, igualAoExtrato) => void agir(`/api/financeiro/lancamentos/${emCorrecao.lancamento.id}/acoes`, acaoDoLancamentoSchema, corpo,
       igualAoExtrato ? `${emCorrecao.lancamento.codigo}: valor corrigido. Com o mesmo valor do extrato, o par vai para Sugeridos.` : `${emCorrecao.lancamento.codigo}: valor corrigido. O valor ainda difere do extrato.`,
     ).then((dados) => { if (dados) setCorrigirId(null); })} /> : null}
+
+    {emCriacao && opcoes ? <CriarDaLinha movimento={emCriacao} opcoes={opcoes} gerente={gerente} aoFechar={() => setCriarId(null)} aoCriar={(mensagem) => { setCriarId(null); setAviso(mensagem); router.refresh(); }} /> : null}
 
     {tarifaId ? <TarifaDialog movimentoId={tarifaId} opcoes={opcoes} ocupado={ocupado} aoFechar={() => setTarifaId(null)} aoCriar={(corpo) => void agir("/api/financeiro/conciliacao/tarifa", criarTarifaSchema, corpo, "Tarifa criada e conciliada.").then((dados) => { if (dados) setTarifaId(null); })} /> : null}
   </div>;
