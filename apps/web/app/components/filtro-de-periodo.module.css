@@ -3,6 +3,7 @@
    e o calendário do sistema (react-day-picker, mesmo estilo do DatePicker) com dois meses lado a lado. */
 
 .ancora { display: inline-flex; min-width: 0; }
+.ancoraCampo { display: block; min-width: 0; }
 .painel { display: grid; gap: 14px; width: min(580px, calc(100vw - 16px)); padding: 16px; }
 .campos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0; padding: 0; border: 0; min-width: 0; }
 .campo { min-width: 0; }

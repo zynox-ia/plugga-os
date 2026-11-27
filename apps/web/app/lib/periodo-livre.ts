@@ -30,12 +30,23 @@ export function escreverIntervaloNaUrl(url: URL, intervalo: IntervaloLivre | nul
   url.searchParams.set("ate", intervalo.ate);
 }
 
-/** Os erros por campo do formulário De/Até; vazio quando vale. As duas datas são obrigatórias. */
-export function validarIntervalo(de: string, ate: string): { de?: string; ate?: string } {
+/** Quantos dias separam os dois dias (AAAA-MM-DD): do 1º ao 2 do mês seguinte, por exemplo, são 32 (a mesma conta da API). */
+export function diasEntre(de: string, ate: string): number {
+  return Math.round((Date.parse(ate) - Date.parse(de)) / 86_400_000);
+}
+
+/**
+ * Os erros por campo do formulário De/Até; vazio quando vale. As duas datas são obrigatórias.
+ * `maximoDeDias` (opcional) é o limite da API da tela: acima dele o erro vai para o campo Até.
+ */
+export function validarIntervalo(de: string, ate: string, maximoDeDias?: number): { de?: string; ate?: string } {
   const erros: { de?: string; ate?: string } = {};
   if (!de) erros.de = "Informe a data inicial."; else if (!diaValido(de)) erros.de = "Informe uma data válida.";
   if (!ate) erros.ate = "Informe a data final."; else if (!diaValido(ate)) erros.ate = "Informe uma data válida.";
-  if (!erros.de && !erros.ate && ate < de) erros.ate = "A data final não pode ser anterior à inicial.";
+  if (!erros.de && !erros.ate) {
+    if (ate < de) erros.ate = "A data final não pode ser anterior à inicial.";
+    else if (maximoDeDias !== undefined && diasEntre(de, ate) > maximoDeDias) erros.ate = `O período não pode passar de ${maximoDeDias} dias.`;
+  }
   return erros;
 }
 

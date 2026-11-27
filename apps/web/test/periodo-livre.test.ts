@@ -109,3 +109,17 @@ describe("intervalo livre de datas: o mês que o calendário mostra", () => {
     assert.equal(mesInicial({ de: "2026-02-30", ate: "" }, "2026-11-27"), "2026-11-01");
   });
 });
+
+describe("intervalo livre de datas: limite de dias da tela", () => {
+  it("sem limite, qualquer intervalo em ordem vale", () => {
+    assert.deepEqual(validarIntervalo("2020-01-01", "2026-11-15"), {});
+  });
+  it("com limite, aceita o intervalo exatamente no limite e recusa um dia a mais, com o erro no campo Até", () => {
+    assert.deepEqual(validarIntervalo("2026-01-01", "2027-01-02", 366), {});
+    assert.deepEqual(validarIntervalo("2026-01-01", "2027-01-03", 366), { ate: "O período não pode passar de 366 dias." });
+  });
+  it("o limite só entra quando as datas valem e estão em ordem", () => {
+    assert.deepEqual(validarIntervalo("2024-01-01", "2023-01-01", 366), { ate: "A data final não pode ser anterior à inicial." });
+    assert.deepEqual(validarIntervalo("", "2027-12-31", 366), { de: "Informe a data inicial." });
+  });
+});

@@ -4,7 +4,7 @@ import { CalendarDays, CalendarRange } from "lucide-react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { diaValido, mesInicial, proximaSelecao, rotuloDoIntervalo, validarIntervalo, type IntervaloLivre } from "../lib/periodo-livre";
-import { FiltroComBusca } from "./suprimentos/menu-com-busca";
+import { CampoDeMenu, FiltroComBusca } from "./suprimentos/menu-com-busca";
 import { Button } from "./ui";
 import { DatePicker, dataInvalidaEm } from "./ui/date-picker";
 import { dateValue, parseDate } from "./ui/date-value";
@@ -33,9 +33,18 @@ const INTERVALO = "__intervalo";
  * fica realçada. As duas datas são obrigatórias, e Até não pode ser anterior a De. Com um intervalo aplicado, o gatilho mostra o rótulo curto
  * ("01/11 – 15/11/2026"). Usa o gatilho e o menu do FiltroComBusca, então herda o visual
  * de quem o envolve. O estado (e o endereço) são de quem usa a tela.
+ *
+ * Opcionais (sem eles nada muda): `maximoDeDias` recusa, no campo Até, um intervalo maior que o
+ * limite da API da tela; `semTodoOPeriodo` tira "Todo o período" quando a tela sempre precisa de
+ * datas; `variante="campo"` troca o gatilho de filtro pelo campo de formulário (`CampoDeMenu`, com
+ * `dica`), para dentro de diálogos, e abre o painel dentro do próprio diálogo.
  */
-export function FiltroDePeriodo({ label = "Período", atalhos, atalho, intervalo, aoMudar }: {
+export function FiltroDePeriodo({ label = "Período", atalhos, atalho, intervalo, aoMudar, maximoDeDias, semTodoOPeriodo = false, variante = "filtro", dica }: {
   label?: string;
+  maximoDeDias?: number;
+  semTodoOPeriodo?: boolean;
+  variante?: "filtro" | "campo";
+  dica?: string;
   atalhos: readonly { value: string; label: string }[];
   atalho: string;
   intervalo: IntervaloLivre | null;
@@ -46,6 +55,7 @@ export function FiltroDePeriodo({ label = "Período", atalhos, atalho, intervalo
   const [ate, setAte] = useState("");
   const [erros, setErros] = useState<{ de?: string; ate?: string }>({});
   const [mes, setMes] = useState<Date>(() => new Date());
+  const [camada, setCamada] = useState<HTMLElement | null>(null);
   const meses = useMesesVisiveis();
   const raiz = useRef<HTMLSpanElement>(null);
   const conteudo = useRef<HTMLDivElement>(null);
@@ -53,12 +63,13 @@ export function FiltroDePeriodo({ label = "Período", atalhos, atalho, intervalo
   const icone = <CalendarDays />;
 
   const opcoes = [
-    { value: "", label: "Todo o período", icon: icone },
+    ...(semTodoOPeriodo ? [] : [{ value: "", label: "Todo o período", icon: icone }]),
     ...atalhos.map((a) => ({ value: a.value, label: a.label, icon: icone })),
     ...(intervalo ? [{ value: INTERVALO, label: rotuloDoIntervalo(intervalo), icon: icone }] : []),
     { value: PERSONALIZADO, label: "Personalizado…", icon: <CalendarRange /> },
   ];
   const gatilho = () => raiz.current?.querySelector<HTMLButtonElement>('button[aria-haspopup="listbox"]') ?? null;
+  const emCampo = variante === "campo";
 
   /** O menu devolve o foco ao gatilho ao fechar; abrir o painel antes disso o fecharia (foco fora). */
   function abrirPainelQuandoOMenuFechar(tentativas = 0) {
@@ -68,6 +79,8 @@ export function FiltroDePeriodo({ label = "Período", atalhos, atalho, intervalo
       const inicio = { de: intervalo?.de ?? "", ate: intervalo?.ate ?? "" };
       setDe(inicio.de); setAte(inicio.ate); setErros({});
       setMes(parseDate(mesInicial(inicio, dateValue(new Date()))) ?? new Date());
+      // Dentro de um <dialog> modal, só o que está nele recebe cliques: o painel abre na mesma camada.
+      setCamada(raiz.current?.closest("dialog") ?? null);
       setPainel(true);
     });
   }
@@ -91,7 +104,7 @@ export function FiltroDePeriodo({ label = "Período", atalhos, atalho, intervalo
   }
   function aplicar() {
     if (dataInvalidaEm(conteudo.current)) return;
-    const encontrados = validarIntervalo(de, ate);
+    const encontrados = validarIntervalo(de, ate, maximoDeDias);
     if (encontrados.de || encontrados.ate) { focarErro.current = true; setErros(encontrados); return; }
     aoMudar({ atalho: "", intervalo: { de, ate } });
     setPainel(false);
@@ -107,11 +120,13 @@ export function FiltroDePeriodo({ label = "Período", atalhos, atalho, intervalo
 
   return <Popover open={painel} onOpenChange={setPainel}>
     <PopoverAnchor asChild>
-      <span ref={raiz} className={styles.ancora}>
-        <FiltroComBusca label={label} icon={icone} semFiltro="" value={intervalo ? INTERVALO : atalho} options={opcoes} onChange={aoEscolher} />
+      <span ref={raiz} className={emCampo ? styles.ancoraCampo : styles.ancora}>
+        {emCampo
+          ? <CampoDeMenu label={label} icon={icone} required={semTodoOPeriodo} hint={dica} value={intervalo ? INTERVALO : atalho} options={opcoes} onChange={aoEscolher} />
+          : <FiltroComBusca label={label} icon={icone} semFiltro="" value={intervalo ? INTERVALO : atalho} options={opcoes} onChange={aoEscolher} />}
       </span>
     </PopoverAnchor>
-    <PopoverContent ref={conteudo} align="end" className={styles.painel} aria-label={`${label} personalizado`}
+    <PopoverContent ref={conteudo} container={camada} align={emCampo ? "start" : "end"} className={styles.painel} aria-label={`${label} personalizado`}
       onOpenAutoFocus={(e) => { e.preventDefault(); conteudo.current?.querySelector<HTMLInputElement>('[data-campo="de"] input')?.focus(); }}
       onCloseAutoFocus={(e) => { e.preventDefault(); gatilho()?.focus(); }}
       // O calendário do DatePicker abre noutra camada: clicar nele não é clicar fora.
