@@ -1,4 +1,4 @@
-import { companyKeys, type CompanyKey, type GrupoDoRelatorio, type RelatorioPorCategoria, type SecaoDoRelatorio, type TipoDeLancamento } from "@plugga/shared";
+import { PRIMEIRO_DIA_DO_RELATORIO, ULTIMO_DIA_DO_RELATORIO, companyKeys, type CompanyKey, type GrupoDoRelatorio, type RelatorioPorCategoria, type SecaoDoRelatorio, type TipoDeLancamento } from "@plugga/shared";
 
 /**
  * Relatório por grupo e categoria do Financeiro (PLU-360): o filtro da URL, os
@@ -49,11 +49,12 @@ export function atalhoDoPeriodo(filtros: Pick<FiltrosDoRelatorio, "de" | "ate">,
   }) ?? null;
 }
 
-/** O filtro da URL: dias válidos e em ordem, senão o mês atual; empresa só se for uma das duas. */
+/** O filtro da URL: dias válidos, em ordem e na faixa do contrato, senão o mês atual; empresa só se for uma das duas. */
 export function lerFiltrosDoRelatorio(parametros: Record<string, string | undefined>, hoje: string): FiltrosDoRelatorio {
   const padrao = periodoDoAtalho("mes", hoje);
   const { de, ate } = parametros;
-  const periodo = diaValido(de) && diaValido(ate) && de <= ate ? { de, ate } : padrao;
+  const naFaixa = (dia: string) => dia >= PRIMEIRO_DIA_DO_RELATORIO && dia <= ULTIMO_DIA_DO_RELATORIO;
+  const periodo = diaValido(de) && diaValido(ate) && de <= ate && naFaixa(de) && naFaixa(ate) ? { de, ate } : padrao;
   const empresa = companyKeys.find((item) => item === parametros.empresa);
   return { ...periodo, ...(empresa ? { empresa } : {}) };
 }

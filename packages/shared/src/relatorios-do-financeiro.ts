@@ -23,12 +23,20 @@ import { decimalString, uuid } from "./primitivas.js";
  * resultado só vem com as duas.
  */
 
+/**
+ * A faixa de dias aceita: larga para qualquer relatório do negócio, e longe dos
+ * extremos do calendário (o dia seguinte a 9999-12-31 nem cabe no formato).
+ */
+export const PRIMEIRO_DIA_DO_RELATORIO = "2000-01-01";
+export const ULTIMO_DIA_DO_RELATORIO = "2100-12-31";
+const diaDoRelatorio = diaDoCalendario.refine((dia) => dia >= PRIMEIRO_DIA_DO_RELATORIO && dia <= ULTIMO_DIA_DO_RELATORIO, "Escolha um dia entre 01/01/2000 e 31/12/2100.");
+
 /** O período (os dois dias inclusos) e a empresa; sem empresa, as duas. */
 export const relatorioPorCategoriaQuerySchema = z
   .object({
     empresa: companyKeySchema.optional(),
-    de: diaDoCalendario,
-    ate: diaDoCalendario,
+    de: diaDoRelatorio,
+    ate: diaDoRelatorio,
   })
   .strict()
   .refine((q) => q.de <= q.ate, { path: ["ate"], message: "O fim do período vem depois do início." });
@@ -90,8 +98,8 @@ export const LIMITE_DOS_LANCAMENTOS_DO_RELATORIO = 500;
 export const lancamentosDoRelatorioQuerySchema = z
   .object({
     empresa: companyKeySchema.optional(),
-    de: diaDoCalendario,
-    ate: diaDoCalendario,
+    de: diaDoRelatorio,
+    ate: diaDoRelatorio,
     tipo: tipoDeLancamentoSchema,
     categoria: z.union([
       z.literal("sem"),

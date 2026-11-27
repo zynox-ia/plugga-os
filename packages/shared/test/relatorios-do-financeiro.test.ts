@@ -25,3 +25,15 @@ test("os lançamentos de uma linha vêm pelos ids da linha ou por 'sem' (PLU-360
   }
   assert.equal(lancamentosDoRelatorioQuerySchema.safeParse({ de: "2026-11-01", ate: "2026-11-30", tipo: "todos", categoria: ID }).success, false);
 });
+
+test("o período fica entre 2000-01-01 e 2100-12-31, nos dois relatórios, com mensagem clara (PLU-360)", () => {
+  for (const schema of [relatorioPorCategoriaQuerySchema, lancamentosDoRelatorioQuerySchema]) {
+    const extra = schema === lancamentosDoRelatorioQuerySchema ? { tipo: "saida", categoria: "sem" } : {};
+    assert.equal(schema.safeParse({ de: "2000-01-01", ate: "2100-12-31", ...extra }).success, true);
+    for (const [de, ate] of [["1999-12-31", "2026-11-30"], ["2026-11-01", "2101-01-01"], ["9999-12-31", "9999-12-31"], ["0001-01-01", "0001-01-01"]]) {
+      const r = schema.safeParse({ de, ate, ...extra });
+      assert.equal(r.success, false, `${de} a ${ate}`);
+      assert.ok(r.error?.issues.some((i) => i.message === "Escolha um dia entre 01/01/2000 e 31/12/2100."), `${de} a ${ate}`);
+    }
+  }
+});

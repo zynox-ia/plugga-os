@@ -151,3 +151,11 @@ describe("CSV do relatório (PLU-360)", () => {
     assert.equal(nomeDoCsv({ de: "2026-11-01", ate: "2026-11-30", empresa: "waze" }), "relatorio-por-categoria_2026-11-01_a_2026-11-30_waze.csv");
   });
 });
+
+describe("período fora da faixa do contrato (PLU-360)", () => {
+  it("dia antes de 2000 ou depois de 2100 na URL volta ao mês atual, em vez de pedir à API o que ela recusa", () => {
+    assert.deepEqual(lerFiltrosDoRelatorio({ de: "9999-12-31", ate: "9999-12-31" }, HOJE), { de: "2026-11-01", ate: "2026-11-30" });
+    assert.deepEqual(lerFiltrosDoRelatorio({ de: "1999-12-31", ate: "2026-11-30" }, HOJE), { de: "2026-11-01", ate: "2026-11-30" });
+    assert.deepEqual(lerFiltrosDoRelatorio({ de: "2000-01-01", ate: "2100-12-31" }, HOJE), { de: "2000-01-01", ate: "2100-12-31" });
+  });
+});

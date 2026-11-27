@@ -84,5 +84,7 @@ describe("relatório por grupo e categoria (PLU-360)", () => {
     expect(antes.toISOString()).toBe("2026-12-01T04:00:00.000Z");
     expect(periodoDoRelatorio("2026-12-31", "2026-12-31").antes.toISOString()).toBe("2027-01-01T04:00:00.000Z");
     expect(periodoDoRelatorio("2028-02-28", "2028-02-28").antes.toISOString()).toBe("2028-02-29T04:00:00.000Z");
+    // Os extremos da faixa do contrato (2000-01-01 a 2100-12-31) dão instantes válidos.
+    expect(periodoDoRelatorio("2000-01-01", "2100-12-31")).toEqual({ desde: new Date("2000-01-01T04:00:00.000Z"), antes: new Date("2101-01-01T04:00:00.000Z") });
   });
 });
