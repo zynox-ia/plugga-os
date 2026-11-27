@@ -169,6 +169,19 @@ describe("o valor emitido depende de como o texto entrou", () => {
     assert.deepEqual(entrada("25000", ""), { text: "25.000,00", value: "25000.00" });
     assert.deepEqual(entrada("1,235", "1,23"), { text: "12,35", value: "12.35" }, "um caractere novo é digitação");
   });
+  it("sem tipo de evento, substituição em bloco de tamanho igual ou menor também é lida como colar, não como máscara", () => {
+    assert.deepEqual(entrada("12345", "123,45"), { text: "12.345,00", value: "12345.00" }, "menor que o anterior, mesmos algarismos");
+    assert.deepEqual(entrada("4,56", "1,23"), { text: "4,56", value: "4.56" }, "mesmo tamanho");
+    assert.deepEqual(entrada("99", "1.234,56"), { text: "99,00", value: "99.00" }, "bem menor");
+    assert.deepEqual(entrada("1234,56", "1.234,56"), { text: "1.234,56", value: "1234.56" }, "mesmos algarismos, outro formato");
+  });
+  it("sem tipo de evento, um caractere no fim e apagar o último seguem sendo digitação; esvaziar limpa", () => {
+    assert.deepEqual(entrada("1.234,567", "1.234,56"), { text: "12.345,67", value: "12345.67" });
+    assert.deepEqual(entrada("1.234,5", "1.234,56"), { text: "123,45", value: "123.45" });
+    assert.deepEqual(entrada("1,23a", "1,23"), { text: "1,23", value: "1.23" }, "letra no fim não muda nada");
+    assert.deepEqual(entrada("", "1,23"), { text: "", value: "" });
+    assert.deepEqual(entrada("1,23", "1,23"), { text: "1,23", value: "1.23" });
+  });
   it("bloco que não é valor é ignorado (o campo fica como estava)", () => {
     assert.equal(entrada("abc", "1,23", "insertText", "abc"), undefined);
     assert.equal(entrada("1,23abc", "1,23", "insertFromDrop", "abc"), undefined);
