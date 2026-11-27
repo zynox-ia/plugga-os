@@ -13,6 +13,7 @@ import {
   numeroNormalizado,
   problemaDoArquivo,
   resumoDoLado,
+  saldoDasNotas,
   validarNota,
   type CamposDaNota,
 } from "../app/lib/notas-fiscais.ts";
@@ -72,6 +73,26 @@ describe("filtros das Notas fiscais", () => {
     const datas = daWazeNoMes.map((n) => n.emitidaEm);
     assert.deepEqual(datas, [...datas].sort().reverse());
     assert.deepEqual(filtrarNotas(notas, { busca: "alameda" }, HOJE).map((n) => n.numero), ["1287", "1284"]);
+  });
+
+  it("saldo das notas: entradas menos saídas com empresa e período; a busca não entra", () => {
+    const nota = (id: string, tipo: "entrada" | "saida", empresa: "plugga" | "waze", valor: string, emitidaEm: string, nome = "Alguém") =>
+      ({ ...notas[0]!, id, tipo, empresa, valor, emitidaEm, contraparte: { id, nome, papel: tipo === "entrada" ? "cliente" as const : "fornecedor" as const } });
+    const conjunto = [
+      nota("a", "entrada", "plugga", "1000.10", "2026-11-20", "Mercado"),
+      nota("b", "saida", "plugga", "250.05", "2026-11-21"),
+      nota("c", "saida", "waze", "2000.00", "2026-11-22"),
+      nota("d", "entrada", "waze", "0.10", "2026-10-15"),
+      nota("e", "saida", "plugga", "0.20", "2026-10-02"),
+    ];
+    assert.equal(saldoDasNotas(conjunto, {}, HOJE), "-1250.05");
+    assert.equal(saldoDasNotas(conjunto, { empresa: "plugga" }, HOJE), "749.85");
+    assert.equal(saldoDasNotas(conjunto, { periodo: "mes" }, HOJE), "-1249.95");
+    assert.equal(saldoDasNotas(conjunto, { empresa: "waze", periodo: "mes-anterior" }, HOJE), "0.10");
+    // A busca acha a nota, mas não muda o saldo.
+    assert.equal(saldoDasNotas(conjunto, { busca: "mercado" }, HOJE), saldoDasNotas(conjunto, {}, HOJE));
+    assert.equal(saldoDasNotas([], {}, HOJE), "0.00");
+    assert.equal(saldoDasNotas([conjunto[4]!], {}, HOJE), "-0.20");
   });
 
   it("o resumo soma em centavos e conta o que falta (lançamento e arquivo)", () => {

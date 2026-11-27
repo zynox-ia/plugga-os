@@ -11,6 +11,7 @@ import {
   periodosDasNotas,
   quantasNotas,
   resumoDoLado,
+  saldoDasNotas,
   ROTULO_DO_PERIODO_DAS_NOTAS,
   ROTULO_DO_TIPO_DA_NOTA,
   temFiltroNasNotas,
@@ -73,6 +74,7 @@ export function NotasFiscaisView({ hoje, ladoInicial, opcoes, exemplos }: {
   const doLado = notasDoLado(filtradas, lado);
   const resumo = resumoDoLado(doLado);
   const filtrado = temFiltroNasNotas(filtros);
+  const saldo = saldoDasNotas(notas, filtros, hoje);
   const rotulos = ROTULO_DO_TIPO_DA_NOTA[lado];
 
   function escolherLado(tipo: TipoDaNota) {
@@ -104,7 +106,7 @@ export function NotasFiscaisView({ hoje, ladoInicial, opcoes, exemplos }: {
     // A nota nova tem de aparecer: os filtros que a esconderiam saem.
     if (filtrarNotas([nota], filtros, hoje).length === 0) limpar();
     setDestaque(nota.id);
-    setAviso(`Nota nº ${nota.numero} adicionada às ${ROTULO_DO_TIPO_DA_NOTA[nota.tipo].lado.toLowerCase()}. No protótipo, ela fica só até recarregar a página.`);
+    setAviso("Nota fiscal adicionada.");
     requestAnimationFrame(() => listaRef.current?.querySelector(`[data-nota="${nota.id}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" }));
   }
 
@@ -132,7 +134,6 @@ export function NotasFiscaisView({ hoje, ladoInicial, opcoes, exemplos }: {
         <h2 className={`${estilosPipelines.subtitulo} ${styles.subtitulo}`}>
           {filtros.empresa ? `Notas de entrada e de saída da ${filtros.empresa === "plugga" ? "Plugga" : "Waze Energia"}.` : "Notas de entrada e de saída das duas empresas."}
         </h2>
-        <p className={styles.prototipo}><span aria-hidden="true" className={styles.prototipoPonto} />Protótipo · dados de exemplo</p>
       </div>
       <div className={`${estilosPipelines.acoes} ${styles.acoes}`}>
         <div className={styles.filtroEmpresa}>
@@ -149,7 +150,7 @@ export function NotasFiscaisView({ hoje, ladoInicial, opcoes, exemplos }: {
         const { icone: Icone, descricao } = LADO[tipo];
         const deste = resumoDoLado(notasDoLado(filtradas, tipo));
         return <button key={tipo} type="button" role="tab" id={`notas-lado-${tipo}`} aria-selected={lado === tipo} aria-controls="notas-lista"
-          tabIndex={lado === tipo ? 0 : -1} className={styles.lado} onClick={() => escolherLado(tipo)}>
+          tabIndex={lado === tipo ? 0 : -1} className={`${styles.lado} ${tipo === "entrada" ? styles.ladoEntrada : styles.ladoSaida}`} onClick={() => escolherLado(tipo)}>
           <span className={styles.ladoIcone} aria-hidden="true"><Icone size={18} /></span>
           <span className={styles.ladoTexto}>
             <span className={styles.ladoNome}>{ROTULO_DO_TIPO_DA_NOTA[tipo].lado}</span>
@@ -162,6 +163,10 @@ export function NotasFiscaisView({ hoje, ladoInicial, opcoes, exemplos }: {
         </button>;
       })}
     </div>
+
+    <p className={styles.saldo} title="Entradas menos saídas, com os filtros de empresa e período">
+      Saldo das notas · <strong className={saldo.startsWith("-") ? styles.negativo : undefined}>{valorEmReais(saldo)}</strong>
+    </p>
 
     <div className={styles.barra} role="group" aria-label="Busca e filtros das notas">
       <form className={`equipe-busca ${styles.busca}`} onSubmit={buscar} role="search" aria-label="Buscar notas fiscais">
@@ -219,9 +224,6 @@ export function NotasFiscaisView({ hoje, ladoInicial, opcoes, exemplos }: {
               </tr>)}</tbody>
             </ShellTable>
           </div>
-          <nav className="lista-paginacao" aria-label="Rodapé da lista de notas">
-            <span className="lista-paginacao-info">Protótipo: as notas são de exemplo e o que você adicionar fica só nesta aba. Ao recarregar a página, a lista volta aos exemplos.</span>
-          </nav>
         </ShellCard>
       </div>}
     </section>

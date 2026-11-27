@@ -48,7 +48,7 @@ export function AdicionarNotaFiscal({ hoje, tipoInicial, empresaInicial, notas, 
   const focar = useRef(false);
   const mudar = (parcial: Partial<CamposDaNota>) => setCampos((atuais) => ({ ...atuais, ...parcial }));
 
-  const contexto = { hoje, notas, contrapartes, lancamentos, registradaPor: "você (protótipo)", novoId: `nova-${notas.length + 1}-${Date.now()}` };
+  const contexto = { hoje, notas, contrapartes, lancamentos, registradaPor: "Você", novoId: `nova-${notas.length + 1}-${Date.now()}` };
   // Depois da primeira tentativa, os erros acompanham a digitação.
   const { erros: errosAgora } = validarNota(campos, contexto);
   const chaveDosErros = JSON.stringify(errosAgora);
@@ -99,7 +99,6 @@ export function AdicionarNotaFiscal({ hoje, tipoInicial, empresaInicial, notas, 
     description="Registro manual de uma nota já emitida, com o PDF ou o XML. Emitir a nota pelo Plugga OS vem depois, com a integração."
     footer={<Button type="submit" form="form-nota-fiscal" icon={<Plus size={16} />}>Adicionar nota</Button>}>
     <form ref={formRef} id="form-nota-fiscal" className="ui-dialog-form" onSubmit={salvar} noValidate>
-      <Alert tone="info" title="Protótipo com dados de exemplo">A nota entra só na lista desta aba e some ao recarregar a página. Nada é gravado.</Alert>
       {tentou && quantosErros ? <Alert tone="danger" title={quantosErros === 1 ? "Confira o campo destacado." : `Confira os ${quantosErros} campos destacados.`} /> : null}
 
       <section className="ui-dialog-section">

@@ -137,7 +137,17 @@ export function resumoDoLado(notas: readonly NotaFiscal[]): ResumoDoLado {
   };
 }
 
-export const quantasNotas = (n: number, tipo?: TipoDaNota): string =>
+/**
+ * O saldo das notas no período: o total das entradas menos o das saídas, com os
+ * filtros de empresa e período. A busca não entra: ela acha uma nota, não muda o
+ * recorte do saldo. Decimal em texto, negativo com "-" ("-1250.00").
+ */
+export function saldoDasNotas(notas: readonly NotaFiscal[], filtros: FiltrosDasNotas, hoje: string): string {
+  const doRecorte = filtrarNotas(notas, { ...(filtros.empresa ? { empresa: filtros.empresa } : {}), ...(filtros.periodo ? { periodo: filtros.periodo } : {}) }, hoje);
+  return deCentavos(doRecorte.reduce((saldo, n) => saldo + (n.tipo === "entrada" ? 1n : -1n) * centavosDaNota(n.valor), 0n));
+}
+
+export const quantasNotas =(n: number, tipo?: TipoDaNota): string =>
   `${n === 0 ? "Nenhuma" : n} ${n === 1 ? "nota" : "notas"}${tipo ? ` de ${tipo === "entrada" ? "entrada" : "saída"}` : ""}`;
 
 // ---------------------------------------------------------------- lançamento vinculado
