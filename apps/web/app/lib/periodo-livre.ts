@@ -58,3 +58,24 @@ export function dentroDoIntervalo(valor: string, intervalo: IntervaloLivre | nul
   const dia = valor.slice(0, 10);
   return dia >= intervalo.de && dia <= intervalo.ate;
 }
+
+/**
+ * O clique num dia do calendário de dois meses. Sem início (ou com o intervalo já
+ * completo), o clique marca um início novo; com o início marcado, marca o fim. Se o
+ * segundo clique cai antes do início, a ordem se troca: o intervalo vai do dia mais
+ * antigo ao mais novo. "" é uma ponta ainda não marcada (ou digitada sem valer).
+ */
+export function proximaSelecao(atual: { de: string; ate: string }, clicado: string): { de: string; ate: string } {
+  const de = diaValido(atual.de) ? atual.de : "";
+  const ate = diaValido(atual.ate) ? atual.ate : "";
+  if (de && ate) return { de: clicado, ate: "" };
+  if (!de && ate) return clicado <= ate ? { de: clicado, ate } : { de: ate, ate: clicado };
+  if (!de) return { de: clicado, ate: "" };
+  return clicado >= de ? { de, ate: clicado } : { de: clicado, ate: de };
+}
+
+/** O primeiro dia do mês que o calendário abre mostrando: o do início, senão o do fim, senão o de `hoje`. */
+export function mesInicial(atual: { de: string; ate: string }, hoje: string): string {
+  const base = diaValido(atual.de) ? atual.de : diaValido(atual.ate) ? atual.ate : hoje;
+  return `${base.slice(0, 7)}-01`;
+}

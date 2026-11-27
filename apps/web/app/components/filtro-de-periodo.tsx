@@ -1,25 +1,36 @@
 "use client";
 
 import { CalendarDays, CalendarRange } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
-import { rotuloDoIntervalo, validarIntervalo, type IntervaloLivre } from "../lib/periodo-livre";
+import { diaValido, mesInicial, proximaSelecao, rotuloDoIntervalo, validarIntervalo, type IntervaloLivre } from "../lib/periodo-livre";
 import { FiltroComBusca } from "./suprimentos/menu-com-busca";
 import { Button } from "./ui";
 import { DatePicker, dataInvalidaEm } from "./ui/date-picker";
+import { dateValue, parseDate } from "./ui/date-value";
+import { Calendar } from "./ui/shadcn/calendar";
 import { Popover, PopoverAnchor, PopoverContent } from "./ui/shadcn/popover";
 import styles from "./filtro-de-periodo.module.css";
 
 /** O que o filtro escolheu: um atalho (ou "" para todo o período) ou um intervalo livre. */
 export type EscolhaDePeriodo = { atalho: string; intervalo: null } | { atalho: ""; intervalo: IntervaloLivre };
 
+const TELA_ESTREITA = "(max-width: 640px)";
+const assinarTela = (aviso: () => void) => { const m = window.matchMedia(TELA_ESTREITA); m.addEventListener("change", aviso); return () => m.removeEventListener("change", aviso); };
+/** Um mês só em tela estreita; dois, lado a lado, no resto (no servidor, dois). */
+const useMesesVisiveis = () => useSyncExternalStore(assinarTela, () => (window.matchMedia(TELA_ESTREITA).matches ? 1 : 2), () => 2);
+
+/** Sem `onSelect` o react-day-picker guarda a seleção sozinho e ignora `selected`; aqui quem manda é o estado do painel (clicarNoDia). */
+const SEM_ACAO = () => undefined;
+
 const PERSONALIZADO = "__personalizado";
 const INTERVALO = "__intervalo";
 
 /**
  * Filtro de período reutilizável: "Todo o período", os atalhos da tela e "Personalizado…",
- * que abre um painel com "De" e "Até" (as duas datas são obrigatórias, e Até não pode ser
- * anterior a De). Com um intervalo aplicado, o gatilho mostra o rótulo curto
+ * que abre um painel com "De" e "Até" (digitáveis) e, embaixo, dois meses lado a lado (um só
+ * em tela estreita): o primeiro clique marca o início, o segundo o fim, e a faixa entre eles
+ * fica realçada. As duas datas são obrigatórias, e Até não pode ser anterior a De. Com um intervalo aplicado, o gatilho mostra o rótulo curto
  * ("01/11 – 15/11/2026"). Usa o gatilho e o menu do FiltroComBusca, então herda o visual
  * de quem o envolve. O estado (e o endereço) são de quem usa a tela.
  */
@@ -34,6 +45,8 @@ export function FiltroDePeriodo({ label = "Período", atalhos, atalho, intervalo
   const [de, setDe] = useState("");
   const [ate, setAte] = useState("");
   const [erros, setErros] = useState<{ de?: string; ate?: string }>({});
+  const [mes, setMes] = useState<Date>(() => new Date());
+  const meses = useMesesVisiveis();
   const raiz = useRef<HTMLSpanElement>(null);
   const conteudo = useRef<HTMLDivElement>(null);
   const focarErro = useRef(false);
@@ -51,7 +64,12 @@ export function FiltroDePeriodo({ label = "Período", atalhos, atalho, intervalo
   function abrirPainelQuandoOMenuFechar(tentativas = 0) {
     const menuAberto = gatilho()?.getAttribute("aria-expanded") === "true" || document.querySelector('[role="listbox"]');
     if (menuAberto && tentativas < 40) { requestAnimationFrame(() => abrirPainelQuandoOMenuFechar(tentativas + 1)); return; }
-    requestAnimationFrame(() => { setDe(intervalo?.de ?? ""); setAte(intervalo?.ate ?? ""); setErros({}); setPainel(true); });
+    requestAnimationFrame(() => {
+      const inicio = { de: intervalo?.de ?? "", ate: intervalo?.ate ?? "" };
+      setDe(inicio.de); setAte(inicio.ate); setErros({});
+      setMes(parseDate(mesInicial(inicio, dateValue(new Date()))) ?? new Date());
+      setPainel(true);
+    });
   }
   function aoEscolher(valor: string) {
     if (valor === PERSONALIZADO || valor === INTERVALO) {
@@ -59,6 +77,17 @@ export function FiltroDePeriodo({ label = "Período", atalhos, atalho, intervalo
       return;
     }
     aoMudar({ atalho: valor, intervalo: null });
+  }
+  /** Digitar uma data válida leva o calendário até o mês dela; o erro some ao editar. */
+  function digitar(lado: "de" | "ate", valor: string) {
+    (lado === "de" ? setDe : setAte)(valor);
+    if (erros.de || erros.ate) setErros({});
+    const dia = parseDate(valor);
+    if (dia && diaValido(valor)) setMes(dia);
+  }
+  function clicarNoDia(dia: Date) {
+    const proximo = proximaSelecao({ de, ate }, dateValue(dia));
+    setDe(proximo.de); setAte(proximo.ate); setErros({});
   }
   function aplicar() {
     if (dataInvalidaEm(conteudo.current)) return;
@@ -88,8 +117,13 @@ export function FiltroDePeriodo({ label = "Período", atalhos, atalho, intervalo
       // O calendário do DatePicker abre noutra camada: clicar nele não é clicar fora.
       onInteractOutside={(e) => { if ((e.target as HTMLElement | null)?.closest(".ui-date-popover")) e.preventDefault(); }}>
       <div className={styles.campos} role="group" aria-label="Intervalo de datas">
-        <div className={styles.campo} data-campo="de"><DatePicker label="De" required value={de} onChange={(v) => { setDe(v); if (erros.de || erros.ate) setErros({}); }} error={erros.de} hint="" /></div>
-        <div className={styles.campo} data-campo="ate"><DatePicker label="Até" required value={ate} onChange={(v) => { setAte(v); if (erros.de || erros.ate) setErros({}); }} error={erros.ate} hint="" /></div>
+        <div className={styles.campo} data-campo="de"><DatePicker label="De" required value={de} onChange={(v) => digitar("de", v)} error={erros.de} hint="" /></div>
+        <div className={styles.campo} data-campo="ate"><DatePicker label="Até" required value={ate} onChange={(v) => digitar("ate", v)} error={erros.ate} hint="" /></div>
+      </div>
+      {/* Clicar no calendário não tira o foco do campo De/Até: o erro "obrigatório" do campo, ao perder o foco, empurraria o calendário antes do clique terminar. */}
+      <div onMouseDown={(e) => e.preventDefault()}>
+        <Calendar mode="range" numberOfMonths={meses} month={mes} onMonthChange={setMes} onDayClick={clicarNoDia} onSelect={SEM_ACAO} showOutsideDays={false}
+          selected={{ from: parseDate(diaValido(de) ? de : diaValido(ate) ? ate : ""), to: parseDate(diaValido(ate) ? ate : diaValido(de) ? de : "") }} className={styles.calendarios} />
       </div>
       <div className={styles.acoes}>
         {/* O clique não tira o foco do campo: o erro do próprio campo, ao perder o foco, empurraria o botão antes do clique. */}

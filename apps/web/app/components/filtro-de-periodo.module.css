@@ -1,10 +1,29 @@
 /* Filtro de período com intervalo livre (PLU-361). O gatilho e o menu são os do FiltroComBusca
-   (o visual vem de quem usa); aqui fica só o painel do "Personalizado…". */
+   (o visual vem de quem usa); aqui fica só o painel do "Personalizado…": os campos De e Até no topo
+   e o calendário do sistema (react-day-picker, mesmo estilo do DatePicker) com dois meses lado a lado. */
 
 .ancora { display: inline-flex; min-width: 0; }
-.painel { display: grid; gap: 14px; width: min(300px, calc(100vw - 16px)); padding: 16px; }
-.campos { display: grid; gap: 12px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.painel { display: grid; gap: 14px; width: min(580px, calc(100vw - 16px)); padding: 16px; }
+.campos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0; padding: 0; border: 0; min-width: 0; }
 .campo { min-width: 0; }
-/* O DatePicker do sistema sempre desenha a linha de ajuda; vazia, ela não ocupa espaço. */
+/* O DatePicker do sistema sempre desenha a linha de ajuda (vazia aqui) e um botão de calendário
+   próprio: o calendário grande do painel já faz esse papel. */
 .campo :global(.ui-field-hint):empty { display: none; }
+.campo :global(.ui-date-trigger) { display: none; }
 .acoes { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* Calendário de dois meses: seta de voltar à esquerda e de avançar à direita, mês centralizado em
+   cada coluna, dia de início e de fim em destaque e a faixa do meio em tom leve. */
+.painel .calendarios { padding: 0; }
+.painel .calendarios :global(.rdp-months) { display: flex; gap: 24px; }
+.painel .calendarios :global(.rdp-month) { flex: 1 1 0; min-width: 0; }
+.painel .calendarios :global(.rdp-nav) { inset: 0 0 auto 0; justify-content: space-between; width: 100%; pointer-events: none; }
+.painel .calendarios :global(.rdp-nav) button { pointer-events: auto; }
+.painel .calendarios :global(.rdp-month_caption) { justify-content: center; padding: 0 36px; }
+.painel .calendarios :global(.rdp-range_middle) { background: var(--ui-focus-bg); }
+.painel .calendarios :global(.ui-calendar-day)[data-range-start="true"],
+.painel .calendarios :global(.ui-calendar-day)[data-range-end="true"] { background: var(--ui-text); color: #fff; }
+
+@media (max-width: 640px) {
+  .painel { width: min(340px, calc(100vw - 16px)); }
+}

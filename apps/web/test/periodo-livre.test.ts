@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { dentroDoIntervalo, escreverIntervaloNaUrl, lerIntervalo, rotuloDoIntervalo, validarIntervalo } from "../app/lib/periodo-livre.ts";
+import { dentroDoIntervalo, escreverIntervaloNaUrl, lerIntervalo, mesInicial, proximaSelecao, rotuloDoIntervalo, validarIntervalo } from "../app/lib/periodo-livre.ts";
 
 describe("intervalo livre de datas: leitura do endereço", () => {
   it("lê de e ate quando as duas datas existem e estão em ordem", () => {
@@ -75,5 +75,37 @@ describe("intervalo livre de datas: o dia entra pela data, com o dia inteiro do 
   });
   it("sem intervalo, tudo entra", () => {
     assert.equal(dentroDoIntervalo("2020-01-01", null), true);
+  });
+});
+
+describe("intervalo livre de datas: cliques no calendário de dois meses", () => {
+  it("o primeiro clique marca o início e o segundo marca o fim", () => {
+    const primeiro = proximaSelecao({ de: "", ate: "" }, "2026-11-10");
+    assert.deepEqual(primeiro, { de: "2026-11-10", ate: "" });
+    assert.deepEqual(proximaSelecao(primeiro, "2026-11-20"), { de: "2026-11-10", ate: "2026-11-20" });
+  });
+  it("o segundo clique no mesmo dia vale um dia só", () => {
+    assert.deepEqual(proximaSelecao({ de: "2026-11-10", ate: "" }, "2026-11-10"), { de: "2026-11-10", ate: "2026-11-10" });
+  });
+  it("o segundo clique antes do início troca a ordem: o intervalo vai do mais antigo ao mais novo", () => {
+    assert.deepEqual(proximaSelecao({ de: "2026-11-10", ate: "" }, "2026-11-03"), { de: "2026-11-03", ate: "2026-11-10" });
+  });
+  it("com o intervalo completo, o próximo clique começa outro", () => {
+    assert.deepEqual(proximaSelecao({ de: "2026-11-10", ate: "2026-11-20" }, "2026-12-01"), { de: "2026-12-01", ate: "" });
+  });
+  it("sem início mas com fim digitado, o clique vira o início e o fim fica", () => {
+    assert.deepEqual(proximaSelecao({ de: "", ate: "2026-11-20" }, "2026-11-10"), { de: "2026-11-10", ate: "2026-11-20" });
+  });
+  it("o início digitado que não é uma data válida não atrapalha: o clique começa um intervalo novo", () => {
+    assert.deepEqual(proximaSelecao({ de: "2026-02-30", ate: "" }, "2026-11-10"), { de: "2026-11-10", ate: "" });
+  });
+});
+
+describe("intervalo livre de datas: o mês que o calendário mostra", () => {
+  it("abre no mês do início, ou do fim, ou de hoje", () => {
+    assert.equal(mesInicial({ de: "2026-09-12", ate: "2026-11-20" }, "2026-11-27"), "2026-09-01");
+    assert.equal(mesInicial({ de: "", ate: "2026-11-20" }, "2026-12-27"), "2026-11-01");
+    assert.equal(mesInicial({ de: "", ate: "" }, "2026-11-27"), "2026-11-01");
+    assert.equal(mesInicial({ de: "2026-02-30", ate: "" }, "2026-11-27"), "2026-11-01");
   });
 });
