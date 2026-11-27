@@ -20,6 +20,7 @@ import { PrismaConciliacaoRepository, type ContaDoExtrato } from "../src/finance
 import { PrismaFinanceiroRepository } from "../src/financeiro/prisma-financeiro.repository.js";
 import { contextoBanco } from "../src/prisma/contexto-banco.js";
 import { PrismaService } from "../src/prisma/prisma.service.js";
+import { assertSafeTestDatabaseUrl } from "./safe-test-environment";
 
 /**
  * A conciliação (PLU-339), C1, contra o Postgres: o extrato e os movimentos, sem duplicar
@@ -612,89 +613,94 @@ describe.skipIf(!HABILITADO)("conciliação: extrato bancário no Postgres", () 
 });
 
 /**
- * As migrations da origem (PLU-339) num banco EXCLUSIVO, criado e removido aqui no servidor de teste:
- * migration nenhuma se reaplica no banco compartilhado. O banco sobe até antes da coluna, ganha
- * lançamentos conciliados (inclusive os que parecem "criados e conciliados na mesma chamada", com o
- * mesmo instante), recebe as duas primeiras, grava uma origem pela aplicação e recebe a terceira.
+ * A migration da origem (PLU-339) num banco EXCLUSIVO, criado e removido por este teste no servidor
+ * de teste: migration nenhuma se reaplica no banco compartilhado. O banco sobe até antes da coluna,
+ * ganha lançamentos conciliados (inclusive um conciliado no mesmo instante do pagamento e uma perna de
+ * transferência manual), recebe a migration da coluna e só então a aplicação grava uma origem.
  */
-describe.skipIf(!HABILITADO)("origem da linha do extrato: as migrations num banco só deste teste", () => {
+describe.skipIf(!HABILITADO)("origem da linha do extrato: a migration num banco só deste teste", () => {
   const PRAZO = 300_000;
-  const PRIMEIRA = "20261127150339_lancamento_da_linha_do_extrato";
-  const SEGUNDA = "20261127161339_origem_so_comprovada";
-  const TERCEIRA = "20261127190339_origem_so_da_aplicacao";
+  const DA_COLUNA = "20261127150339_lancamento_da_linha_do_extrato";
   const raiz = path.resolve(__dirname, "../prisma/migrations");
-  const nome = `plugga_plu339_${randomBytes(4).toString("hex")}`;
-  const urlDe = (db: string) => { const u = new URL(process.env.DATABASE_URL!); u.pathname = `/${db}`; u.search = ""; return u.toString(); };
-  const pasta = mkdtempSync(path.join(tmpdir(), "plu339-migrations-"));
-  const admin = new PrismaClient({ datasourceUrl: urlDe("postgres") });
-  let banco: PrismaClient;
-
-  /** `prisma migrate deploy` no banco exclusivo, só com as migrations anteriores à PRIMEIRA, ou até `ate`. */
-  const migrarAte = (ate: string | null) => {
-    rmSync(path.join(pasta, "migrations"), { recursive: true, force: true });
-    mkdirSync(path.join(pasta, "migrations"));
-    for (const m of readdirSync(raiz)) {
-      if (m === "migration_lock.toml" || (ate === null ? m < PRIMEIRA : m <= ate)) cpSync(path.join(raiz, m), path.join(pasta, "migrations", m), { recursive: true });
-    }
-    execFileSync(process.execPath, [createRequire(import.meta.url).resolve("prisma/build/index.js"), "migrate", "deploy"], { cwd: pasta, env: { ...process.env, DATABASE_URL: urlDe(nome) }, stdio: "pipe" });
-  };
-  const origemDe = async (id: string) => (await banco.$queryRaw<{ origem: string | null }[]>`SELECT movimento_de_origem_id::text AS origem FROM public.lancamentos WHERE id = ${id}::uuid`)[0]?.origem ?? null;
   const ID = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 
-  beforeAll(async () => {
-    cpSync(path.resolve(__dirname, "../prisma/schema.prisma"), path.join(pasta, "schema.prisma"));
-    writeFileSync(path.join(pasta, "prisma.config.ts"), 'export default { schema: "schema.prisma", migrations: { path: "migrations" } };\n');
-    await admin.$executeRawUnsafe(`CREATE DATABASE "${nome}"`);
-    await admin.$executeRawUnsafe(`ALTER DATABASE "${nome}" SET plugga.ambiente = 'local'`);
-    migrarAte(null);
-    banco = new PrismaClient({ datasourceUrl: urlDe(nome) });
-  }, PRAZO);
+  it("nenhum lançamento anterior à coluna tem origem; a que a aplicação grava depois fica, e o gatilho e o índice valem", async () => {
+    // O mesmo guard da suíte, ANTES de conectar: a URL base e a do banco exclusivo.
+    const base = process.env.DATABASE_URL ?? "";
+    assertSafeTestDatabaseUrl(base, process.env.CI === "true", process.env.PLUGGA_TEST_DB_PORT);
+    const nome = `plugga_plu339_${randomBytes(4).toString("hex")}_test`;
+    const urlDe = (db: string) => { const u = new URL(base); u.pathname = `/${db}`; u.search = ""; return u.toString(); };
+    assertSafeTestDatabaseUrl(urlDe(nome), process.env.CI === "true", process.env.PLUGGA_TEST_DB_PORT);
 
-  afterAll(async () => {
-    await banco?.$disconnect();
-    await admin.$executeRawUnsafe(`DROP DATABASE IF EXISTS "${nome}" WITH (FORCE)`);
-    await admin.$disconnect();
-    rmSync(pasta, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
-  }, PRAZO);
+    const pasta = mkdtempSync(path.join(tmpdir(), "plu339-migrations-"));
+    const admin = new PrismaClient({ datasourceUrl: urlDe("postgres") });
+    let banco: PrismaClient | null = null;
+    let criado = false;
+    /** `prisma migrate deploy` no banco exclusivo: só as anteriores à da coluna, ou todas até ela. */
+    const migrar = (comAColuna: boolean) => {
+      rmSync(path.join(pasta, "migrations"), { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+      mkdirSync(path.join(pasta, "migrations"));
+      for (const m of readdirSync(raiz)) {
+        if (m === "migration_lock.toml" || (comAColuna ? m <= DA_COLUNA : m < DA_COLUNA)) cpSync(path.join(raiz, m), path.join(pasta, "migrations", m), { recursive: true });
+      }
+      execFileSync(process.execPath, [createRequire(import.meta.url).resolve("prisma/build/index.js"), "migrate", "deploy"], { cwd: pasta, env: { ...process.env, DATABASE_URL: urlDe(nome) }, stdio: "pipe" });
+    };
+    const origemDe = async (id: string) => (await banco!.$queryRaw<{ origem: string | null }[]>`SELECT movimento_de_origem_id::text AS origem FROM public.lancamentos WHERE id = ${id}::uuid`)[0]?.origem ?? null;
+    const codigoDe = async (fazer: () => Promise<unknown>) => {
+      try { await fazer(); return null; } catch (erro) { return (erro as Error).message.match(/Code: `(\w+)`/)?.[1] ?? (erro as Error).message; }
+    };
 
-  it("nenhum lançamento anterior à coluna termina com origem; o que a aplicação gravou depois fica", async () => {
-    const instante = "2026-10-01 10:00:00-04";
-    // Os conciliados de antes da coluna, como o dono do banco (sem gatilhos nem FKs, como um dado antigo).
-    await banco.$transaction(async (tx) => {
-      await tx.$executeRawUnsafe("SET LOCAL session_replication_role = replica");
-      await tx.$executeRawUnsafe(`INSERT INTO companies (id, name) VALUES ('plugga', 'Plugga') ON CONFLICT DO NOTHING`);
-      await tx.$executeRawUnsafe(`INSERT INTO fornecedores (id, nome, categoria, updated_at) VALUES ('${ID(1)}', 'Fornecedor', 'servico', now())`);
-      await tx.$executeRawUnsafe(`INSERT INTO contas_correntes (id, company_id, nome, updated_at) VALUES ('${ID(2)}', 'plugga', 'Conta A', now()), ('${ID(3)}', 'plugga', 'Conta B', now())`);
-      await tx.$executeRawUnsafe(`INSERT INTO extratos_bancarios (id, company_id, conta_corrente_id, origem, arquivo_chave, arquivo_nome, arquivo_tamanho, arquivo_sha256, periodo_de, periodo_ate, movimentos, novos)
-        VALUES ('${ID(4)}', 'plugga', '${ID(2)}', 'ofx', 'financeiro/extratos/plugga/${ID(2)}/e.ofx', 'e.ofx', 1, repeat('a', 64), now(), now(), 3, 3)`);
-      await tx.$executeRawUnsafe(`INSERT INTO transferencias (id, company_id, conta_origem_id, conta_destino_id, valor, dia, descricao) VALUES ('${ID(5)}', 'plugga', '${ID(2)}', '${ID(3)}', 50, '${instante}', 'Transferência manual')`);
-      // 10: criado na Conciliação e conciliado no mesmo instante (a "prova" da segunda migration);
-      // 11: perna de uma transferência MANUAL, conciliada depois numa operação à parte, com o mesmo instante;
-      // 12: avulsa conciliada, nunca nasceu de linha.
-      await tx.$executeRawUnsafe(`INSERT INTO lancamentos (id, tipo, numero, company_id, fornecedor_id, conta_corrente_id, descricao, valor, vencimento, etapa, origem, transferencia_id, aprovado_em, forma, pago_em, pagamento_registrado_em, conciliado_em, updated_at) VALUES
-        ('${ID(10)}', 'saida', 9010, 'plugga', '${ID(1)}', '${ID(2)}', 'criado na conciliação', 100, '${instante}', 'conciliada', 'conciliacao', NULL, '${instante}', 'pix', '${instante}', '${instante}', '${instante}', now()),
-        ('${ID(11)}', 'saida', 9011, 'plugga', NULL, '${ID(2)}', 'perna manual', 50, '${instante}', 'conciliada', 'transferencia', '${ID(5)}', '${instante}', 'transferencia', '${instante}', '${instante}', '${instante}', now()),
-        ('${ID(12)}', 'saida', 9012, 'plugga', '${ID(1)}', '${ID(2)}', 'avulsa', 30, '${instante}', 'conciliada', 'avulsa', NULL, '${instante}', 'pix', '${instante}', '${instante}', '${instante}', now())`);
-      await tx.$executeRawUnsafe(`INSERT INTO movimentos_do_extrato (id, company_id, conta_corrente_id, extrato_id, dia, valor, descricao, identificador, estado, lancamento_id, conciliado_em) VALUES
-        ('${ID(20)}', 'plugga', '${ID(2)}', '${ID(4)}', '${instante}', -100, 'linha 20', 'l20', 'conciliado', '${ID(10)}', '${instante}'),
-        ('${ID(21)}', 'plugga', '${ID(2)}', '${ID(4)}', '${instante}', -50, 'linha 21', 'l21', 'conciliado', '${ID(11)}', '${instante}'),
-        ('${ID(22)}', 'plugga', '${ID(2)}', '${ID(4)}', '${instante}', -30, 'linha 22', 'l22', 'conciliado', '${ID(12)}', '${instante}'),
-        ('${ID(23)}', 'plugga', '${ID(2)}', '${ID(4)}', '${instante}', -70, 'linha 23', 'l23', 'pendente', NULL, NULL)`);
-    });
+    try {
+      cpSync(path.resolve(__dirname, "../prisma/schema.prisma"), path.join(pasta, "schema.prisma"));
+      writeFileSync(path.join(pasta, "prisma.config.ts"), 'export default { schema: "schema.prisma", migrations: { path: "migrations" } };\n');
+      await admin.$executeRawUnsafe(`CREATE DATABASE "${nome}"`);
+      criado = true;
+      await admin.$executeRawUnsafe(`ALTER DATABASE "${nome}" SET plugga.ambiente = 'local'`);
+      migrar(false);
+      banco = new PrismaClient({ datasourceUrl: urlDe(nome) });
 
-    // As duas primeiras: o par atual vira origem (a primeira) e a "prova" alcança a perna manual (a segunda).
-    migrarAte(SEGUNDA);
-    expect([await origemDe(ID(10)), await origemDe(ID(11)), await origemDe(ID(12))]).toEqual([ID(20), ID(21), null]);
+      const instante = "2026-10-01 10:00:00-04";
+      // Os conciliados de antes da coluna, como o dono do banco (sem gatilhos nem FKs, como um dado antigo):
+      // 10 criado na Conciliação e conciliado no mesmo instante do pagamento; 11 perna de transferência
+      // manual conciliada à parte, no mesmo instante; 12 avulsa conciliada.
+      await banco.$transaction(async (tx) => {
+        await tx.$executeRawUnsafe("SET LOCAL session_replication_role = replica");
+        await tx.$executeRawUnsafe(`INSERT INTO companies (id, name) VALUES ('plugga', 'Plugga') ON CONFLICT DO NOTHING`);
+        await tx.$executeRawUnsafe(`INSERT INTO fornecedores (id, nome, categoria, updated_at) VALUES ('${ID(1)}', 'Fornecedor', 'servico', now())`);
+        await tx.$executeRawUnsafe(`INSERT INTO contas_correntes (id, company_id, nome, updated_at) VALUES ('${ID(2)}', 'plugga', 'Conta A', now()), ('${ID(3)}', 'plugga', 'Conta B', now())`);
+        await tx.$executeRawUnsafe(`INSERT INTO extratos_bancarios (id, company_id, conta_corrente_id, origem, arquivo_chave, arquivo_nome, arquivo_tamanho, arquivo_sha256, periodo_de, periodo_ate, movimentos, novos)
+          VALUES ('${ID(4)}', 'plugga', '${ID(2)}', 'ofx', 'financeiro/extratos/plugga/${ID(2)}/e.ofx', 'e.ofx', 1, repeat('a', 64), now(), now(), 4, 4)`);
+        await tx.$executeRawUnsafe(`INSERT INTO transferencias (id, company_id, conta_origem_id, conta_destino_id, valor, dia, descricao) VALUES ('${ID(5)}', 'plugga', '${ID(2)}', '${ID(3)}', 50, '${instante}', 'Transferência manual')`);
+        await tx.$executeRawUnsafe(`INSERT INTO lancamentos (id, tipo, numero, company_id, fornecedor_id, conta_corrente_id, descricao, valor, vencimento, etapa, origem, transferencia_id, aprovado_em, forma, pago_em, pagamento_registrado_em, conciliado_em, updated_at) VALUES
+          ('${ID(10)}', 'saida', 9010, 'plugga', '${ID(1)}', '${ID(2)}', 'criado na conciliação', 100, '${instante}', 'conciliada', 'conciliacao', NULL, '${instante}', 'pix', '${instante}', '${instante}', '${instante}', now()),
+          ('${ID(11)}', 'saida', 9011, 'plugga', NULL, '${ID(2)}', 'perna manual', 50, '${instante}', 'conciliada', 'transferencia', '${ID(5)}', '${instante}', 'transferencia', '${instante}', '${instante}', '${instante}', now()),
+          ('${ID(12)}', 'saida', 9012, 'plugga', '${ID(1)}', '${ID(2)}', 'avulsa', 30, '${instante}', 'conciliada', 'avulsa', NULL, '${instante}', 'pix', '${instante}', '${instante}', '${instante}', now())`);
+        await tx.$executeRawUnsafe(`INSERT INTO movimentos_do_extrato (id, company_id, conta_corrente_id, extrato_id, dia, valor, descricao, identificador, estado, lancamento_id, conciliado_em) VALUES
+          ('${ID(20)}', 'plugga', '${ID(2)}', '${ID(4)}', '${instante}', -100, 'linha 20', 'l20', 'conciliado', '${ID(10)}', '${instante}'),
+          ('${ID(21)}', 'plugga', '${ID(2)}', '${ID(4)}', '${instante}', -50, 'linha 21', 'l21', 'conciliado', '${ID(11)}', '${instante}'),
+          ('${ID(22)}', 'plugga', '${ID(2)}', '${ID(4)}', '${instante}', -30, 'linha 22', 'l22', 'conciliado', '${ID(12)}', '${instante}'),
+          ('${ID(23)}', 'plugga', '${ID(2)}', '${ID(4)}', '${instante}', -65, 'linha 23', 'l23', 'pendente', NULL, NULL)`);
+      });
 
-    // Depois da coluna, a aplicação grava a origem de quem cria a partir da linha 23.
-    await banco.$executeRawUnsafe(`INSERT INTO lancamentos (id, tipo, numero, company_id, fornecedor_id, conta_corrente_id, descricao, valor, vencimento, etapa, origem, aprovado_em, forma, pago_em, pagamento_registrado_em, updated_at)
-      VALUES ('${ID(13)}', 'saida', 9013, 'plugga', '${ID(1)}', '${ID(2)}', 'criado sem conciliar', 65, '${instante}', 'paga', 'conciliacao', '${instante}', 'pix', '${instante}', now(), now())`);
-    await banco.$executeRawUnsafe(`UPDATE lancamentos SET movimento_de_origem_id = '${ID(23)}' WHERE id = '${ID(13)}'`);
+      migrar(true);
+      // Nenhum anterior tem origem: a migration não infere a linha de ninguém.
+      expect([await origemDe(ID(10)), await origemDe(ID(11)), await origemDe(ID(12))]).toEqual([null, null, null]);
+      expect(Number((await banco.$queryRaw<{ n: bigint }[]>`SELECT count(*) AS n FROM public.lancamentos WHERE movimento_de_origem_id IS NOT NULL`)[0]!.n)).toBe(0);
 
-    migrarAte(TERCEIRA);
-    expect([await origemDe(ID(10)), await origemDe(ID(11)), await origemDe(ID(12))]).toEqual([null, null, null]);
-    expect(await origemDe(ID(13))).toBe(ID(23));
-    // O gatilho voltou ligado: a origem gravada segue sem mudar.
-    await expect(banco.$executeRawUnsafe(`UPDATE lancamentos SET movimento_de_origem_id = NULL WHERE id = '${ID(13)}'`)).rejects.toThrow(/23514|origem do lançamento não muda/);
+      // Depois da coluna, a aplicação grava a origem de quem cria a partir da linha 23: fica.
+      await banco.$executeRawUnsafe(`INSERT INTO lancamentos (id, tipo, numero, company_id, fornecedor_id, conta_corrente_id, descricao, valor, vencimento, etapa, origem, aprovado_em, forma, pago_em, pagamento_registrado_em, updated_at)
+        VALUES ('${ID(13)}', 'saida', 9013, 'plugga', '${ID(1)}', '${ID(2)}', 'criado sem conciliar', 60, '${instante}', 'paga', 'conciliacao', '${instante}', 'pix', '${instante}', now(), now())`);
+      await banco.$executeRawUnsafe(`UPDATE lancamentos SET movimento_de_origem_id = '${ID(23)}' WHERE id = '${ID(13)}'`);
+      expect(await origemDe(ID(13))).toBe(ID(23));
+      // O gatilho: a origem gravada não muda nem volta a nulo.
+      expect(await codigoDe(() => banco!.$executeRawUnsafe(`UPDATE lancamentos SET movimento_de_origem_id = NULL WHERE id = '${ID(13)}'`))).toBe("23514");
+      // O índice: um segundo vivo com a mesma linha é recusado.
+      expect(await codigoDe(() => banco!.$executeRawUnsafe(`UPDATE lancamentos SET movimento_de_origem_id = '${ID(23)}' WHERE id = '${ID(12)}'`))).toBe("23505");
+    } finally {
+      await banco?.$disconnect();
+      if (criado) await admin.$executeRawUnsafe(`DROP DATABASE IF EXISTS "${nome}" WITH (FORCE)`);
+      await admin.$disconnect();
+      rmSync(pasta, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    }
   }, PRAZO);
 });

@@ -2,6 +2,11 @@
 -- Criada "sem conciliar" (outro valor), a linha fica pendente e sem par: sem este vínculo, o
 -- reenvio criaria uma segunda despesa paga. Com ele, a criação guiada, a tarifa e a perna da
 -- transferência guardam a linha, e o banco aceita um só lançamento vivo por linha de origem.
+--
+-- Sem backfill, de propósito: o par atual não prova a linha de origem (ele muda depois de um
+-- desfazer), nem o instante da conciliação (uma conciliação à parte cai no mesmo instante). E criar
+-- lançamento a partir do extrato nasce nesta mesma leva: nenhum lançamento anterior nasceu de uma
+-- linha. Todo lançamento anterior fica com origem nula; a origem só existe quando a aplicação grava.
 
 ALTER TABLE public.lancamentos ADD COLUMN movimento_de_origem_id uuid;
 ALTER TABLE public.lancamentos ADD CONSTRAINT lancamentos_movimento_de_origem_id_fkey
@@ -11,12 +16,6 @@ ALTER TABLE public.lancamentos ADD CONSTRAINT lancamentos_movimento_de_origem_id
 -- não depende disso).
 CREATE UNIQUE INDEX lancamentos_um_por_movimento_de_origem ON public.lancamentos (movimento_de_origem_id)
   WHERE movimento_de_origem_id IS NOT NULL AND cancelado_em IS NULL;
-
--- O que já nasceu na Conciliação e está conciliado: a linha do par é a de origem. A transferência
--- fica de fora (a perna também nasce na tela de Lançamentos, e lá não há linha de origem).
-UPDATE public.lancamentos l SET movimento_de_origem_id = m.id
-  FROM public.movimentos_do_extrato m
-  WHERE m.lancamento_id = l.id AND l.origem IN ('conciliacao', 'tarifa_bancaria') AND l.movimento_de_origem_id IS NULL;
 
 -- O que não muda: o de sempre, a transferência da perna, na perna conta, valor, dias e o
 -- cancelamento, e agora a linha de origem depois de gravada.
