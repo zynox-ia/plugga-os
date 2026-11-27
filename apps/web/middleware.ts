@@ -1,6 +1,6 @@
 import type { SessionUser } from "@plugga/shared";
 import { NextResponse, type NextRequest } from "next/server";
-import { fechadaPeloPortaoDoFinanceiro, podeAbrirPagina } from "./app/lib/acesso-paginas";
+import { fechadaPeloPortaoDoFinanceiro, podeAbrirPagina, proxyFechadoPeloPortaoDoFinanceiro } from "./app/lib/acesso-paginas";
 
 import { buildContentSecurityPolicy } from "./app/lib/content-security-policy";
 import { apiBaseUrl } from "./app/lib/env-runtime";
@@ -115,6 +115,10 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
 
   if (pathname.startsWith("/api/")) {
+    // Financeiro fechado: os proxies dele não existem, antes de qualquer validação local ou da API (PLU-336).
+    if (proxyFechadoPeloPortaoDoFinanceiro(pathname)) {
+      return NextResponse.json({ codigo: "NAO_ENCONTRADO", mensagem: "Não encontramos o que você procura." }, { status: 404 });
+    }
     return proximaComCsp(request);
   }
 

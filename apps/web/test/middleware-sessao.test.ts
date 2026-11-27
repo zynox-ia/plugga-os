@@ -219,6 +219,39 @@ describe("middleware: Financeiro fechado responde 404 (PLU-336)", () => {
     }
   });
 
+  it("com o portão fechado, os proxies do Financeiro respondem 404 sem chamar a API, inclusive mutações", async () => {
+    const proxies = ["/api/financeiro", "/api/financeiro/lancamentos?situacao=vencidas", "/api/financeiro/conciliacao/conciliar", "/api/financeiro/comprovantes.zip", "/api/tarefas/financeiro", "/api/tarefas/financeiro/ocorrencias/1/concluir"];
+    for (const portao of FECHADOS) {
+      await comPortao(portao, async () => {
+        let chamou = false;
+        globalThis.fetch = (async () => { chamou = true; return Response.json(USUARIO); }) as typeof fetch;
+        for (const caminho of proxies) {
+          for (const method of ["GET", "POST"]) {
+            const resposta = await middleware(new CriarRequest(`http://localhost:3000${caminho}`, { method, headers: { cookie: "sessao=abc" } }));
+            const cenario = `${method} ${caminho} ${JSON.stringify(portao)}`;
+            assert.equal(resposta.status, 404, cenario);
+            assert.equal(resposta.headers.get("x-middleware-next"), null, cenario);
+            assert.deepEqual(await resposta.json(), { codigo: "NAO_ENCONTRADO", mensagem: "Não encontramos o que você procura." }, cenario);
+          }
+        }
+        assert.equal(chamou, false);
+      });
+    }
+  });
+
+  it("com o portão aberto, os proxies do Financeiro seguem; e o fechado não pega os outros proxies", async () => {
+    for (const portao of ABERTOS) {
+      await comPortao(portao, async () => {
+        assert.ok((await middleware(pedir("/api/financeiro/lancamentos"))).headers.get("x-middleware-next"), JSON.stringify(portao));
+      });
+    }
+    await comPortao(FECHADOS[0]!, async () => {
+      for (const caminho of ["/api/financeiros", "/api/tarefas/engenharia-obras", "/api/tarefas/financeiro-x", "/api/suprimentos/compras"]) {
+        assert.ok((await middleware(pedir(caminho))).headers.get("x-middleware-next"), caminho);
+      }
+    });
+  });
+
   it("cada cenário devolve o ambiente como estava", async () => {
     const antes = { NODE_ENV: process.env.NODE_ENV, flag: process.env.NEXT_PUBLIC_FINANCEIRO_HABILITADO };
     await comPortao(FECHADOS[0]!, async () => {});

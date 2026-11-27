@@ -55,6 +55,16 @@ export function fechadaPeloPortaoDoFinanceiro(pathname: string, ambiente?: Ambie
   return (pathname === "/financeiro" || pathname.startsWith("/financeiro/")) && !financeiroHabilitado(ambiente);
 }
 
+/**
+ * Proxy do Financeiro com o portão fechado: `/api/financeiro/**` e as Tarefas
+ * do Financeiro. A web responde 404 sem depender do portão da API, que pode
+ * estar configurado diferente (PLU-336).
+ */
+export function proxyFechadoPeloPortaoDoFinanceiro(pathname: string, ambiente?: AmbienteDosRecursos): boolean {
+  const doFinanceiro = ["/api/financeiro", "/api/tarefas/financeiro"].some((prefixo) => pathname === prefixo || pathname.startsWith(`${prefixo}/`));
+  return doFinanceiro && !financeiroHabilitado(ambiente);
+}
+
 /** `ambiente` só existe para o teste do portão; a tela usa o do build. */
 export function podeAbrirPagina(acesso: Acesso, pathname: string, ambiente?: AmbienteDosRecursos): boolean {
   if (["/", "/configuracoes", "/agentes-ia", "/auth/google/complete"].includes(pathname)) return true;
