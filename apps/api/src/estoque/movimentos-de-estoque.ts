@@ -75,7 +75,7 @@ export class MovimentosDeEstoque {
     const item = await tx.itemDeEstoque.findUniqueOrThrow({ where: { id: m.itemId }, select: { emEstoque: true, reservado: true, custoMedio: true, ativo: true, companyId: true } });
     if (m.empresa && item.companyId !== m.empresa) throw new RequisicaoInvalida("O item de estoque é de outra empresa.", [{ campo: "itemId", problema: "Escolha um item da mesma empresa." }]);
     if (m.exigirAtivo && !item.ativo) throw new EstadoInvalido("O item de estoque está inativo.");
-    if (entradaDoPedido) await this.garantirLimiteDaEntradaDoPedido(tx, entradaDoPedido, m.itemId, m.movimento.quantidade);
+    if (entradaDoPedido && m.movimento.tipo === "entrada") await this.garantirLimiteDaEntradaDoPedido(tx, entradaDoPedido, m.itemId, m.movimento.quantidade);
 
     const plano = planejarMovimento(item, m.movimento);
     if (!plano.ok) throw new EstadoInvalido(plano.recusa.mensagem, plano.recusa.campo ? [{ campo: plano.recusa.campo, problema: plano.recusa.mensagem }] : undefined);
