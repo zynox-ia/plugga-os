@@ -2,7 +2,9 @@ import { notFound } from "next/navigation";
 
 import { CentroDeCustoView } from "../../components/financeiro/centro-de-custo-view";
 import { exigirPagina } from "../../lib/exigir-pagina";
-import { clientesDeExemplo, lerFiltrosDosProjetos, PROJETOS_DE_EXEMPLO, ROTA_DO_CENTRO_DE_CUSTO } from "../../lib/prototipo-centro-de-custo";
+import { lerFiltrosDosProjetos, ROTA_DO_CENTRO_DE_CUSTO } from "../../lib/prototipo-centro-de-custo";
+// Os exemplos só carregam aqui, no servidor, e descem por props depois da trava.
+import { clientesDeExemplo, PROJETOS_DE_EXEMPLO } from "../../lib/prototipo-centro-de-custo-exemplos";
 import { prototipoDoCentroDeCustoHabilitado } from "../../lib/recursos";
 
 /**
@@ -13,6 +15,7 @@ import { prototipoDoCentroDeCustoHabilitado } from "../../lib/recursos";
 export default async function CentroDeCustoPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   if (!prototipoDoCentroDeCustoHabilitado()) notFound();
   await exigirPagina(ROTA_DO_CENTRO_DE_CUSTO);
-  const filtros = lerFiltrosDosProjetos(await searchParams);
-  return <CentroDeCustoView filtros={filtros} projetos={PROJETOS_DE_EXEMPLO} clientes={clientesDeExemplo()} />;
+  const clientes = clientesDeExemplo();
+  const filtros = lerFiltrosDosProjetos(await searchParams, clientes.map((c) => c.id));
+  return <CentroDeCustoView filtros={filtros} projetos={PROJETOS_DE_EXEMPLO} clientes={clientes} />;
 }

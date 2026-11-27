@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { ProjetoDoCentroDeCusto } from "../../../components/financeiro/projeto-do-centro-de-custo";
 import { podeAbrirPagina } from "../../../lib/acesso-paginas";
 import { exigirPagina } from "../../../lib/exigir-pagina";
-import { hrefDoProjeto, PROJETOS_DE_EXEMPLO, projetoDeExemplo } from "../../../lib/prototipo-centro-de-custo";
+import { hrefDoProjeto } from "../../../lib/prototipo-centro-de-custo";
+import { PROJETOS_DE_EXEMPLO, projetoDeExemplo } from "../../../lib/prototipo-centro-de-custo-exemplos";
 import { prototipoDoCentroDeCustoHabilitado } from "../../../lib/recursos";
 
 /** O centro de custo de um projeto (PLU-362), PROTÓTIPO com dados de exemplo; só em desenvolvimento. */

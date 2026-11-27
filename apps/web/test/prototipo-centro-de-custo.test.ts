@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import path from "node:path";
 import { describe, it } from "node:test";
 
 import type { Acesso, Tela } from "@plugga/shared";
@@ -8,8 +10,6 @@ import {
   filtrarProjetos,
   hrefDosProjetos,
   lerFiltrosDosProjetos,
-  projetoDeExemplo,
-  PROJETOS_DE_EXEMPLO,
   projetosPorCliente,
   projetoVazio,
   reais,
@@ -18,6 +18,7 @@ import {
   totalDaSaidaDoEstoque,
   type Projeto,
 } from "../app/lib/prototipo-centro-de-custo.ts";
+import { clientesDeExemplo, projetoDeExemplo, PROJETOS_DE_EXEMPLO } from "../app/lib/prototipo-centro-de-custo-exemplos.ts";
 import { itemDoCentroDeCusto, prototipoDoCentroDeCustoHabilitado } from "../app/lib/recursos.ts";
 
 const so = (...telas: Tela[]): Acesso => ({ plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "membro", telas }] });
@@ -136,15 +137,64 @@ describe("números do centro de custo de exemplo (PLU-362)", () => {
   });
 
   it("o endereço guarda os filtros e descarta o que não é válido", () => {
-    const filtros = lerFiltrosDosProjetos({ visao: "clientes", empresa: "waze", cliente: "cli-joao", situacao: "em_andamento", busca: "  usina " });
+    const filtros = lerFiltrosDosProjetos({ visao: "clientes", empresa: "waze", cliente: "cli-joao", situacao: "em_andamento", busca: "  usina " }, clientesDeExemplo().map((c) => c.id));
     assert.deepEqual(filtros, { visao: "clientes", empresa: "waze", cliente: "cli-joao", situacao: "em_andamento", busca: "usina" });
     assert.equal(hrefDosProjetos(filtros), "/financeiro/centro-de-custo?visao=clientes&empresa=waze&cliente=cli-joao&situacao=em_andamento&busca=usina");
-    assert.deepEqual(lerFiltrosDosProjetos({ visao: "quadro", empresa: "outra", cliente: "x", situacao: "toString" }), { visao: "projetos" });
+    assert.deepEqual(lerFiltrosDosProjetos({ visao: "quadro", empresa: "outra", cliente: "x", situacao: "toString" }, ["cli-joao"]), { visao: "projetos" });
     assert.equal(hrefDosProjetos({ visao: "projetos" }), "/financeiro/centro-de-custo");
   });
 
   it("valores em reais, com o sinal de menos no negativo", () => {
     assert.equal(reais(123_456).replace(/\s/g, " "), "R$ 1.234,56");
     assert.equal(reais(-5_000).replace(/\s/g, " "), "− R$ 50,00");
+  });
+});
+
+describe("os exemplos do Centro de custo não vão ao navegador (PLU-362)", () => {
+  // Grafo dos imports relativos de app/: a partir de cada módulo "use client", nenhum caminho chega ao módulo de exemplos.
+  const raiz = path.resolve(import.meta.dirname, "../app");
+  const EXEMPLOS = path.join(raiz, "lib", "prototipo-centro-de-custo-exemplos.ts");
+  const arquivos = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory() ? arquivos(path.join(dir, e.name)) : /\.(tsx?|mjs|js)$/.test(e.name) ? [path.join(dir, e.name)] : []);
+  const resolver = (de: string, especificador: string): string | null => {
+    const base = path.resolve(path.dirname(de), especificador);
+    for (const c of [base, `${base}.ts`, `${base}.tsx`, path.join(base, "index.ts"), path.join(base, "index.tsx")]) {
+      if (existsSync(c) && statSync(c).isFile()) return c;
+    }
+    return null;
+  };
+  const imports = (arquivo: string): string[] => {
+    const texto = readFileSync(arquivo, "utf8");
+    const especificadores = [...texto.matchAll(/(?:import|export)\s[^"';]*?from\s*["'](\.[^"']+)["']|import\s*\(\s*["'](\.[^"']+)["']\s*\)|import\s*["'](\.[^"']+)["']/g)]
+      .map((m) => m[1] ?? m[2] ?? m[3]!);
+    return especificadores.flatMap((e) => { const r = resolver(arquivo, e); return r ? [r] : []; });
+  };
+  const ehCliente = (arquivo: string) => /^\s*(?:\/\/[^\n]*\n|\/\*[\s\S]*?\*\/\s*)*["']use client["']/.test(readFileSync(arquivo, "utf8"));
+
+  function caminhoAteOsExemplos(inicio: string): string[] | null {
+    const vindo = new Map<string, string | null>([[inicio, null]]);
+    const fila = [inicio];
+    while (fila.length) {
+      const atual = fila.shift()!;
+      if (atual === EXEMPLOS) {
+        const caminho = [];
+        for (let a: string | null = atual; a; a = vindo.get(a) ?? null) caminho.unshift(path.relative(raiz, a));
+        return caminho;
+      }
+      for (const proximo of imports(atual)) if (!vindo.has(proximo)) { vindo.set(proximo, atual); fila.push(proximo); }
+    }
+    return null;
+  }
+
+  it("nenhum módulo \"use client\" importa os exemplos, nem por outro módulo", () => {
+    const clientes = arquivos(raiz).filter(ehCliente);
+    // Sanidade: o detector acha os componentes cliente do Centro de custo.
+    assert.ok(clientes.some((c) => c.endsWith(path.join("financeiro", "centro-de-custo-view.tsx"))));
+    for (const cliente of clientes) assert.equal(caminhoAteOsExemplos(cliente), null, path.relative(raiz, cliente));
+  });
+
+  it("o detector pega um import indireto (prova do teste)", () => {
+    // A página do servidor chega aos exemplos: se o detector não visse isso, o teste acima passaria à toa.
+    assert.deepEqual(caminhoAteOsExemplos(path.join(raiz, "financeiro", "centro-de-custo", "page.tsx")), [path.join("financeiro", "centro-de-custo", "page.tsx"), path.join("lib", "prototipo-centro-de-custo-exemplos.ts")]);
   });
 });
