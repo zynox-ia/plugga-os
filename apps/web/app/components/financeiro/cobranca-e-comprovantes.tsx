@@ -11,6 +11,7 @@ import { detalheDaConta } from "../../lib/configuracoes-do-financeiro";
 import { competenciaLegivel } from "../../lib/financeiro";
 import { contasDaEmpresa, valorEmDigitacao } from "../../lib/ficha-do-lancamento";
 import estilosCompras from "../compras/compras.module.css";
+import { FiltroDePeriodo, type EscolhaDePeriodo } from "../filtro-de-periodo";
 import { CampoDeMenu } from "../suprimentos/menu-com-busca";
 import { Alert, Button, Checkbox, DatePicker, Dialog, TextField, TextareaField } from "../ui";
 import styles from "./ficha.module.css";
@@ -161,14 +162,15 @@ export function BaixarComprovantes({ empresaInicial, alcance, aoFechar }: { empr
   const meses = mesesParaBaixar(hojeEmManaus());
   const tipos = tiposDoZip(alcance);
   const [empresa, setEmpresa] = useState<CompanyKey | "">(empresaInicial ?? "");
-  const [mes, setMes] = useState(meses[0]!.value);
+  const [escolha, setEscolha] = useState<EscolhaDePeriodo>({ atalho: meses[0]!.value, intervalo: null });
   const [tipo, setTipo] = useState<TipoDoZip>(tipos[0]!.value);
   const [erro, setErro] = useState<string | null>(null);
   const [baixando, setBaixando] = useState(false);
 
   async function baixar(evento: FormEvent) {
     evento.preventDefault();
-    const periodo = meses.find((m) => m.value === mes)!;
+    // Atalho e intervalo livre são exclusivos; sem nenhum dos dois (Limpar), vale o mês de hoje.
+    const periodo = escolha.intervalo ?? meses.find((m) => m.value === escolha.atalho) ?? meses[0]!;
     setBaixando(true); setErro(null);
     try {
       const resposta = await fetch(hrefDoZip({ empresa: empresa || null, de: periodo.de, ate: periodo.ate, tipo }));
@@ -194,7 +196,7 @@ export function BaixarComprovantes({ empresaInicial, alcance, aoFechar }: { empr
     <form id="form-baixar-comprovantes" className="ui-dialog-form" onSubmit={(e) => void baixar(e)} noValidate>
       {erro ? <Alert tone="danger" title={`Erro: ${erro}`} /> : null}
       <CampoDeMenu label="Empresa" options={empresas} value={empresa} icon={<Building2 />} onChange={(v) => setEmpresa(v as CompanyKey | "")} />
-      <CampoDeMenu label="Mês" required options={meses.map((m) => ({ value: m.value, label: m.label, icon: <CalendarDays /> }))} value={mes} icon={<CalendarDays />} hint="Pelo dia do pagamento ou do recebimento." onChange={setMes} />
+      <FiltroDePeriodo variante="campo" semTodoOPeriodo atalhos={meses} atalho={escolha.atalho || meses[0]!.value} intervalo={escolha.intervalo} dica="Pelo dia do pagamento ou do recebimento." aoMudar={setEscolha} />
       {tipos.length > 1 ? <CampoDeMenu label="Quais" options={tipos.map((t) => ({ value: t.value, label: t.label, icon: <Receipt /> }))} value={tipo} icon={<Receipt />} onChange={(v) => setTipo(v as TipoDoZip)} /> : null}
       <p className={styles.notaDosAnexos}>Os arquivos já estão guardados nos lançamentos; o .zip só junta os atuais do período, até 500.</p>
     </form>

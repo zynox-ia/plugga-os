@@ -2,6 +2,7 @@ import { VALOR_MAXIMO_DO_LANCAMENTO, type CompanyKey, type CriarCobranca, type O
 
 import { decimalDigitado } from "./compras.ts";
 import { competenciaLegivel } from "./financeiro.ts";
+import { atalhosDeMes } from "./periodo-por-atalho.ts";
 
 /**
  * Nova cobrança manual e "Baixar comprovantes" (PLU-337, W4). A cobrança em lote
@@ -97,15 +98,8 @@ export const PRAZO_DO_ZIP_MS = 10 * 60_000;
 
 /** Os meses para escolher (do atual para trás), com o primeiro e o último dia. */
 export function mesesParaBaixar(hoje: string, quantos = 12): { value: string; label: string; de: string; ate: string }[] {
-  const atual = mesDe(hoje);
-  return Array.from({ length: quantos }, (_, i) => {
-    const mes = somarMeses(atual, -i);
-    const [ano, m] = mes.split("-").map(Number) as [number, number];
-    const ultimo = new Date(Date.UTC(ano, m, 0)).getUTCDate();
-    // O mês corrente vai até hoje: dia futuro não tem comprovante.
-    const ate = i === 0 ? hoje : `${mes}-${String(ultimo).padStart(2, "0")}`;
-    return { value: mes, label: competenciaLegivel(mes), de: `${mes}-01`, ate };
-  });
+  // O mês corrente vai até hoje: dia futuro não tem comprovante.
+  return atalhosDeMes(hoje, quantos, competenciaLegivel);
 }
 
 /** O endereço do .zip pelo proxy da web, só com o que foi escolhido. */
