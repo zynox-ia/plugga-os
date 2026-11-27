@@ -1,11 +1,12 @@
 "use client";
 
-import { formasDePagamento, rotulosDaEtapaDeCompra, rotulosDaFormaDePagamento, type FormaDePagamento, type PedidoDeCompra } from "@plugga/shared";
+import { formasDePagamento, rotulosDaEtapaDeCompra, rotulosDaFormaDePagamento, type AtendimentoPeloEstoque, type FormaDePagamento, type PedidoDeCompra } from "@plugga/shared";
 import { Ban, CheckCircle2, Clock, Eye, Paperclip, Plus, ShoppingCart, Sparkles, Truck, UserRound, Wallet, Warehouse, type LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
+import { enviar } from "../../lib/clientes";
 import { AREA_DA_ETAPA, dataEmManaus, diaCurto, hojeEmManaus, pendenciasDaEtapa, tamanhoDoArquivo, urlDoArquivo, valorEmReais } from "../../lib/compras";
-import { comparacaoComOrcado, diaDoIso, prazoDaEtapaAtual } from "../../lib/ficha-do-pedido";
+import { comparacaoComOrcado, diaDoIso, opcaoDoEstoque, prazoDaEtapaAtual, tituloDoConcluido } from "../../lib/ficha-do-pedido";
 import visao from "../pipelines/resumo-do-lead.module.css";
 import { EntradaNoEstoqueDoRecebimento, type EstadoDaEntrada } from "../suprimentos/ligacao-com-estoque";
 import { Button, DatePicker, FileDropzone, TextField } from "../ui";
@@ -52,6 +53,46 @@ function Destaque({ icone: Icone, titulo, tom, children }: { icone: LucideIcon; 
   </section>;
 }
 
+/** A mesma consulta da lista de cobertura, aqui para o botão do estoque; `null` enquanto não chega. */
+function useCobertura(pedidoId: string, versao: string): AtendimentoPeloEstoque | "erro" | null {
+  const [estado, setEstado] = useState<{ versao: string; dados: AtendimentoPeloEstoque | "erro" } | null>(null);
+  useEffect(() => {
+    const controle = new AbortController();
+    void enviar<AtendimentoPeloEstoque>(`/api/suprimentos/compras/pedidos/${encodeURIComponent(pedidoId)}/atendimento`, "GET", undefined, controle.signal)
+      .then((r) => { if (!controle.signal.aborted) setEstado({ versao, dados: r.ok ? r.dados : "erro" }); });
+    return () => controle.abort();
+  }, [pedidoId, versao]);
+  return estado?.versao === versao ? estado.dados : null;
+}
+
+/** A decisão da análise, só para quem a tem. O botão do estoque segue a cobertura. */
+function DecisaoDoEstoque({ pedido, ocupado, aoDecidir }: { pedido: PedidoDeCompra; ocupado: boolean; aoDecidir: (origem: "estoque" | "aquisicao") => void }) {
+  // Uma ação que terminou sem mudar a etapa (recusa) pode ter vindo de saldo novo: consulta de novo.
+  const [rodada, setRodada] = useState(0);
+  const estavaOcupado = useRef(ocupado);
+  useEffect(() => {
+    if (estavaOcupado.current && !ocupado) setRodada((r) => r + 1);
+    estavaOcupado.current = ocupado;
+  }, [ocupado]);
+  const versao = `${pedido.updatedAt}:${rodada}`;
+  // Regra da API (PLU-332): atender pelo estoque exige todos os itens vinculados ao estoque.
+  const vinculados = pedido.itens.length > 0 && pedido.itens.every((i) => i.itemDeEstoque);
+  const estoque = opcaoDoEstoque(vinculados, useCobertura(pedido.id, versao));
+  return <>
+    <CoberturaDoEstoque pedidoId={pedido.id} versao={versao} />
+    <div className={styles.decisao}>
+      <button type="button" className={styles.opcao} disabled={ocupado || !estoque.disponivel} onClick={() => aoDecidir("estoque")}>
+        <span className={styles.opcaoIcone} aria-hidden="true"><Warehouse size={18} /></span>
+        <span><strong>Sim, atender pelo estoque</strong><small>{estoque.texto}</small></span>
+      </button>
+      <button type="button" className={styles.opcao} disabled={ocupado} onClick={() => aoDecidir("aquisicao")}>
+        <span className={styles.opcaoIcone} aria-hidden="true"><ShoppingCart size={18} /></span>
+        <span><strong>Não, precisa comprar</strong><small>Segue para Cotações.</small></span>
+      </button>
+    </div>
+  </>;
+}
+
 export type EstadoDaAcao = {
   forma: FormaDePagamento | null; valorFaturado: string; erroValor?: string; erroForma?: string;
   aoForma: (f: FormaDePagamento) => void; aoValorFaturado: (v: string) => void;
@@ -69,8 +110,6 @@ export function AcaoDaEtapa({ pedido, ocupado, estado, aoDecidir, aoVerCotacoes,
   const pode = (a: PedidoDeCompra["acoesPermitidas"][number]) => pedido.acoesPermitidas.includes(a);
   const escolhida = pedido.cotacoes.find((c) => c.id === pedido.cotacaoSelecionadaId);
   const cancelado = pedido.marcos.cancelado;
-  // Regra da API (PLU-332): atender pelo estoque exige todos os itens vinculados ao estoque.
-  const vinculados = pedido.itens.length > 0 && pedido.itens.every((i) => i.itemDeEstoque);
   if (pedido.situacao === "cancelado" && cancelado) return <Destaque icone={Ban} titulo="Pedido cancelado" tom="perigo">
     <p>Cancelado{cancelado.por ? ` por ${cancelado.por.nome}` : ""} em {dataEmManaus(cancelado.em)}, na etapa {rotulosDaEtapaDeCompra[pedido.etapa]}.</p>
     <p className={styles.motivo}><strong>Motivo:</strong> {cancelado.motivo}</p>
@@ -81,18 +120,9 @@ export function AcaoDaEtapa({ pedido, ocupado, estado, aoDecidir, aoVerCotacoes,
       <p>Confira o pedido e comece a análise: verificar se o material já está em estoque ou se o pedido já foi faturado.</p>
     </Destaque>;
     case "analise_estoque": return <Destaque icone={Warehouse} titulo="Possui em estoque? / Pedido já faturado?">
-      <p>A decisão define o caminho do pedido.</p>
-      <CoberturaDoEstoque pedidoId={pedido.id} versao={pedido.updatedAt} />
-      <div className={styles.decisao}>
-        <button type="button" className={styles.opcao} disabled={ocupado || !pode("decidir_estoque") || !vinculados} onClick={() => aoDecidir("estoque")}>
-          <span className={styles.opcaoIcone} aria-hidden="true"><Warehouse size={18} /></span>
-          <span><strong>Sim, atender pelo estoque</strong><small>{vinculados ? "Já tem em estoque ou já foi faturado. Vai direto para Retirada." : "Para atender pelo estoque, todos os itens precisam estar vinculados a um item do estoque."}</small></span>
-        </button>
-        <button type="button" className={styles.opcao} disabled={ocupado || !pode("decidir_estoque")} onClick={() => aoDecidir("aquisicao")}>
-          <span className={styles.opcaoIcone} aria-hidden="true"><ShoppingCart size={18} /></span>
-          <span><strong>Não, precisa comprar</strong><small>Segue para Cotações.</small></span>
-        </button>
-      </div>
+      <p>A decisão define o caminho do pedido.{pode("decidir_estoque") ? null : " Quem decide é a equipe de Compras."}</p>
+      {pode("decidir_estoque") ? <DecisaoDoEstoque pedido={pedido} ocupado={ocupado} aoDecidir={aoDecidir} />
+        : <CoberturaDoEstoque pedidoId={pedido.id} versao={pedido.updatedAt} />}
     </Destaque>;
     case "cotacoes": return <Destaque icone={Paperclip} titulo="Cotações">
       <p>{pedido.cotacoes.length} {pedido.cotacoes.length === 1 ? "cotação registrada" : "cotações registradas"} (recomendado: 3). {escolhida ? <>Vencedora: <strong>{escolhida.fornecedor.nome}</strong>, {valorEmReais(escolhida.valorTotal)} com frete.</> : "Escolha a vencedora para enviar para aprovação."}</p>
@@ -108,8 +138,9 @@ export function AcaoDaEtapa({ pedido, ocupado, estado, aoDecidir, aoVerCotacoes,
     </Destaque>;
     case "pagamento": return <Destaque icone={Wallet} titulo="Registrar pagamento">
       {escolhida ? <p>{valorEmReais(escolhida.valorTotal)} para <strong>{escolhida.fornecedor.nome}</strong>{escolhida.condicoesPagamento ? ` · ${escolhida.condicoesPagamento}` : ""}.</p> : null}
-      <Segmentado rotulo="Forma de pagamento" obrigatorio valor={estado.forma} aoMudar={estado.aoForma} erro={estado.erroForma}
+      {pode("registrar_pagamento") ? <Segmentado rotulo="Forma de pagamento" obrigatorio valor={estado.forma} aoMudar={estado.aoForma} erro={estado.erroForma}
         opcoes={formasDePagamento.map((f) => ({ valor: f, rotulo: rotulosDaFormaDePagamento[f] }))} />
+        : <p>Quem registra o pagamento é o Financeiro.</p>}
       {pedido.comprovantePendente ? <div className={styles.arquivoPendente}>
         <a className={styles.anexo} href={urlDoArquivo(pedido.comprovantePendente.url)} target="_blank" rel="noopener noreferrer"><Paperclip size={13} aria-hidden="true" /><span>{pedido.comprovantePendente.nome}</span></a>
         <span className={styles.muted}>{tamanhoDoArquivo(pedido.comprovantePendente.tamanhoBytes)}</span>
@@ -129,7 +160,7 @@ export function AcaoDaEtapa({ pedido, ocupado, estado, aoDecidir, aoVerCotacoes,
     case "concluido": {
       const fora = pedido.passagens.filter((x) => x.cumpriuPrazo === false).length;
       const fim = pedido.marcos.recebimentoConfirmado?.em ?? pedido.updatedAt;
-      return <Destaque icone={CheckCircle2} titulo="Aquisição concluída" tom="ok">
+      return <Destaque icone={CheckCircle2} titulo={tituloDoConcluido(pedido.origemAtendimento)} tom="ok">
         <p>Concluído em {diaCurto(diaDoIso(fim))}{pedido.valorFaturado ? ` · ${valorEmReais(pedido.valorFaturado)} faturado` : ""} · {fora === 0 ? "todas as etapas no prazo" : `${fora} ${fora === 1 ? "etapa" : "etapas"} fora do prazo`}.</p>
       </Destaque>;
     }

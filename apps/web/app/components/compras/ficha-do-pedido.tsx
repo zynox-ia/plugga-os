@@ -5,7 +5,8 @@ import { Ban, Building2, HardHat, History, LayoutGrid, ListChecks, Package, Pape
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 
 import { enviar } from "../../lib/clientes";
-import { AVISO_DA_ACAO, hojeEmManaus, numeroDoPedido, quantidadeLegivel } from "../../lib/compras";
+import { hojeEmManaus, numeroDoPedido, quantidadeLegivel } from "../../lib/compras";
+import { avisoDaAcao, textoDaRecusa } from "../../lib/ficha-do-pedido";
 import { FecharModal, Modal } from "../modal";
 import { Avatar } from "../pipelines/icones";
 import detalhes from "../pipelines/detalhes-do-lead-modal.module.css";
@@ -48,23 +49,19 @@ export function FichaDoPedido({ pedido: inicial, opcoes, aoFechar, aoAtualizar }
     return r.dados.etapa !== pedido.etapa || r.dados.situacao !== pedido.situacao;
   }
 
-  async function agir(acao: AcaoDoPedido): Promise<boolean> {
+  /** Executa a ação e devolve a recusa (nulo se foi aceita), para ela aparecer onde a pessoa está: na ficha ou no diálogo do motivo. */
+  async function executar(acao: AcaoDoPedido): Promise<string | null> {
     setOcupado(true); setErro(null); setAviso(null);
     const r = await enviar<PedidoDeCompra>(`/api/suprimentos/compras/pedidos/${pedido.id}/acoes`, "POST", acao);
     setOcupado(false);
-    if (r.ok) {
-      atualizado(r.dados, acao.acao === "decidir_estoque" ? (acao.origem === "estoque" ? "Atendido pelo estoque: o pedido foi para Retirada." : "Precisa comprar: o pedido foi para Cotações.")
-        : acao.acao === "selecionar_cotacao" ? `Vencedora: ${r.dados.cotacoes.find((c) => c.id === acao.cotacaoId)?.fornecedor.nome ?? "escolhida"}.` : AVISO_DA_ACAO[acao.acao] ?? null);
-      return true;
-    }
+    if (r.ok) { atualizado(r.dados, avisoDaAcao(acao, r.dados)); return null; }
     if (r.erro.codigo === "CONFLITO_ESTADO") {
       const mudou = await recarregar();
-      setErro(mudou ? `${r.erro.mensagem} O pedido mudou enquanto a ficha estava aberta: ela foi atualizada.` : r.erro.mensagem);
-      return false;
+      return mudou ? `${r.erro.mensagem} O pedido mudou enquanto a ficha estava aberta: ela foi atualizada.` : r.erro.mensagem;
     }
-    setErro(Object.values(r.erro.porCampo)[0] ? `${r.erro.mensagem} ${Object.values(r.erro.porCampo).join(" ")}` : r.erro.mensagem);
-    return false;
+    return textoDaRecusa(r.erro);
   }
+  const agir = async (acao: AcaoDoPedido) => setErro(await executar(acao));
 
   async function enviarComprovante(arquivo: File) {
     const problema = problemaDoArquivo(arquivo);
@@ -140,7 +137,7 @@ export function FichaDoPedido({ pedido: inicial, opcoes, aoFechar, aoAtualizar }
     {janela === "editar" ? <NovoPedido opcoes={opcoes} pedido={pedido} aoCancelar={() => setJanela(null)} aoSalvar={(p) => { setJanela(null); atualizado(p, "Pedido atualizado."); }} /> : null}
     {janela === "cotacao" ? <NovaCotacao pedido={pedido} opcoes={opcoes} aoCancelar={() => setJanela(null)} aoSalvar={(p) => { setJanela(null); atualizado(p, "Cotação registrada."); }} /> : null}
     {janela === "cancelar" || janela === "revisar" ? <MotivoDaAcao acao={janela} aoCancelar={() => setJanela(null)}
-      aoConfirmar={async (motivo) => { const ok = await agir({ acao: janela, motivo }); if (ok) setJanela(null); return ok; }} /> : null}
+      aoConfirmar={async (motivo) => { const recusa = await executar({ acao: janela, motivo }); if (!recusa) setJanela(null); return recusa; }} /> : null}
   </Modal>;
 }
 
@@ -161,19 +158,24 @@ function ItensDoPedido({ pedido }: { pedido: PedidoDeCompra }) {
   </div>;
 }
 
-/** Cancelar ou revisar pedem o motivo, que fica no histórico do pedido. */
-function MotivoDaAcao({ acao, aoCancelar, aoConfirmar }: { acao: "cancelar" | "revisar"; aoCancelar: () => void; aoConfirmar: (motivo: string) => Promise<boolean> }) {
+/** Cancelar ou revisar pedem o motivo, que fica no histórico do pedido. A recusa da API aparece aqui. */
+function MotivoDaAcao({ acao, aoCancelar, aoConfirmar }: { acao: "cancelar" | "revisar"; aoCancelar: () => void; aoConfirmar: (motivo: string) => Promise<string | null> }) {
   const [motivo, setMotivo] = useState("");
   const [erro, setErro] = useState<string | null>(null);
+  const [recusa, setRecusa] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const alerta = useRef<HTMLDivElement>(null);
   const cancelar = acao === "cancelar";
+  // O botão fica desabilitado durante o envio e perde o foco: ele vai para a recusa.
+  useEffect(() => { if (recusa) alerta.current?.focus(); }, [recusa]);
   async function confirmar(evento: FormEvent) {
     evento.preventDefault();
+    setRecusa(null);
     if (!motivo.trim()) { setErro(cancelar ? "informe o motivo do cancelamento." : "informe o que precisa ser revisto."); return; }
     setEnviando(true); setErro(null);
-    const ok = await aoConfirmar(motivo.trim());
+    const resposta = await aoConfirmar(motivo.trim());
     setEnviando(false);
-    if (!ok) setErro("não foi possível concluir. Veja o aviso na ficha.");
+    setRecusa(resposta);
   }
   return <Dialog title={cancelar ? "Cancelar pedido" : "Revisar cotações"} size="estreita" variant={cancelar ? "danger" : "default"} icon={cancelar ? <Ban size={20} /> : <Undo2 size={20} />}
     description={cancelar ? "O pedido sai do quadro e guarda a etapa em que parou. Não dá para desfazer." : "O pedido volta para Cotações e a vencedora é desmarcada."}
@@ -181,6 +183,7 @@ function MotivoDaAcao({ acao, aoCancelar, aoConfirmar }: { acao: "cancelar" | "r
     footer={<Button type="submit" form="form-motivo" variant={cancelar ? "danger" : "primary"} disabled={enviando}>{enviando ? "Enviando…" : cancelar ? "Cancelar pedido" : "Voltar para Cotações"}</Button>}>
     <form id="form-motivo" className="ui-dialog-form" onSubmit={confirmar} noValidate>
       {erro ? <Alert tone="danger" title={`Erro: ${erro}`} /> : null}
+      {recusa ? <div ref={alerta} tabIndex={-1}><Alert tone="danger" title={recusa} /></div> : null}
       <TextareaField label="Motivo" required maxLength={1000} autoFocus value={motivo} onChange={(e) => setMotivo(e.target.value)} error={erro && !motivo.trim() ? erro : undefined}
         placeholder={cancelar ? "Ex.: obra adiada pelo cliente" : "Ex.: pedir nova cotação com frete incluso"} />
     </form>

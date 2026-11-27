@@ -216,7 +216,9 @@ section.acao {
 
 .opcao:active:not(:disabled) { transform: scale(var(--motion-scale-press)); }
 .opcao:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
-.opcao:disabled { cursor: default; opacity: 0.6; }
+/* Desabilitada, a opção apaga o ícone e o título; a linha de baixo diz o porquê e continua legível. */
+.opcao:disabled { cursor: default; background: var(--ui-subtle); }
+.opcao:disabled :is(.opcaoIcone, strong) { opacity: 0.55; }
 
 .opcao strong {
   display: block;
