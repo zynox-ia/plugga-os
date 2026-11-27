@@ -39,9 +39,6 @@ export const eventNames = {
   // Conta da Autentique de uma empresa conectada ou desconectada pela tela. Quem, quando e qual empresa; nunca o token.
   autentiqueConectada: "integracao.autentique.connected",
   autentiqueDesconectada: "integracao.autentique.disconnected",
-  // Conta do OMIE conectada ou desconectada pela tela. Quem e quando; nunca a chave nem o segredo.
-  omieConectado: "integracao.omie.connected",
-  omieDesconectado: "integracao.omie.disconnected",
   // IA pela assinatura (Claude e Codex): início do login e conta removida. Quem e quando; nunca token.
   iaAssinaturaLoginIniciado: "integracao.ia_assinatura.login_started",
   iaAssinaturaContaRemovida: "integracao.ia_assinatura.account_removed",
@@ -196,15 +193,6 @@ export const catalogoEventos = {
   "tarefas.tarefa.created": evento("Tarefa do departamento criada", "empresa"),
   "tarefas.tarefa.encerrada": evento("Tarefa do departamento encerrada", "empresa"),
   "tarefas.ocorrencia.concluida": evento("Tarefa do dia concluída", "empresa"),
-  // OMIE por empresa (PLU-342). Nunca a chave, o segredo nem a resposta do OMIE.
-  "integracoes.omie.conectada": evento("Par do OMIE da empresa gravado", "empresa"),
-  "integracoes.omie.desconectada": evento("Par do OMIE da empresa removido", "empresa"),
-  "integracoes.omie.testada": evento("Conexão do OMIE da empresa testada", "empresa"),
-  "integracoes.omie.confirmada": evento("Conexão do OMIE da empresa confirmada", "empresa"),
-  // S4: só as contagens (criadas e vinculadas); nada do cadastro do OMIE vai ao evento.
-  "integracoes.omie.importada": evento("Cadastros importados do OMIE da empresa", "empresa"),
-  "integracoes.omie.bloqueada": evento("Conexão do OMIE da empresa bloqueada pela conferência do CNPJ", "empresa"),
-  "integracoes.omie.conta_antiga_movida": evento("Conta única do OMIE movida para a empresa", "empresa"),
   "organizacao.empresa.cnpj_definido": evento("CNPJ da empresa no Plugga OS definido", "empresa"),
   // Fornecedor é cadastro único das duas empresas: o escopo é a plataforma. Sem PII, só os nomes dos campos.
   "suprimentos.fornecedor.created": evento("Fornecedor cadastrado", "plataforma"),
@@ -294,8 +282,6 @@ export const eventosLegados: readonly string[] = [
   "integracao.telegram.disconnected",
   "integracao.autentique.connected",
   "integracao.autentique.disconnected",
-  "integracao.omie.connected",
-  "integracao.omie.disconnected",
   "integracao.ia_assinatura.login_started",
   "integracao.ia_assinatura.account_removed",
   "auth.password.changed",

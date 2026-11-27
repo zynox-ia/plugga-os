@@ -5,7 +5,7 @@ export const emailProviderSchema = z.enum(["noop", "brevo"]);
 /**
  * Not backed by the `integrations` table: email delivery isn't gated by the
  * mock -> read_only -> bridge -> write cutover state machine (ADR-0005) the
- * way Bitrix/OMIE/etc. are. This just reports which adapter is selected via
+ * way Bitrix/etc. are. This just reports which adapter is selected via
  * EMAIL_PROVIDER and whether it can currently deliver — never an address,
  * key, or other secret.
  */
