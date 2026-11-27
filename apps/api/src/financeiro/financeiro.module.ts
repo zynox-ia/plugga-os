@@ -15,6 +15,8 @@ import { FinanceiroHabilitadoGuard } from "./financeiro-habilitado.guard";
 import { FinanceiroController } from "./financeiro.controller";
 import { FinanceiroService, RELOGIO_DO_FINANCEIRO } from "./financeiro.service";
 import { PrismaFinanceiroRepository } from "./prisma-financeiro.repository";
+import { PrismaRelatoriosDoFinanceiroRepository } from "./prisma-relatorios-do-financeiro.repository";
+import { RelatoriosDoFinanceiroController, RelatoriosDoFinanceiroService } from "./relatorios-do-financeiro.controller";
 import { ReflexosDoLancamento } from "./reflexo-do-lancamento";
 
 /**
@@ -25,7 +27,7 @@ import { ReflexosDoLancamento } from "./reflexo-do-lancamento";
  */
 @Module({
   imports: [AuditModule, CoreModule, PrismaModule],
-  controllers: [FinanceiroController, CadastrosDoFinanceiroController, ConciliacaoController, TransferenciasController],
+  controllers: [FinanceiroController, CadastrosDoFinanceiroController, ConciliacaoController, TransferenciasController, RelatoriosDoFinanceiroController],
   providers: [
     FinanceiroHabilitadoGuard,
     PrismaCadastrosDoFinanceiroRepository,
@@ -35,6 +37,8 @@ import { ReflexosDoLancamento } from "./reflexo-do-lancamento";
     ArmazenamentoDeDocumentos,
     FinanceiroService,
     PrismaFinanceiroRepository,
+    PrismaRelatoriosDoFinanceiroRepository,
+    RelatoriosDoFinanceiroService,
     ReflexosDoLancamento,
     { provide: RELOGIO_DO_FINANCEIRO, useValue: () => new Date() },
   ],

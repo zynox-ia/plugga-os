@@ -2124,6 +2124,36 @@
     ]
   },
   {
+    "metodo": "GET",
+    "caminho": "/financeiro/relatorios/categorias",
+    "controller": "RelatoriosDoFinanceiroController.porCategoria",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.relatorios",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/financeiro/relatorios/categorias/lancamentos",
+    "controller": "RelatoriosDoFinanceiroController.lancamentosDaLinha",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.relatorios",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
     "metodo": "POST",
     "caminho": "/financeiro/transferencias",
     "controller": "TransferenciasController.criar",

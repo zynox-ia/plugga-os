@@ -589,6 +589,42 @@ export class PrismaFinanceiroRepository {
     };
   }
 
+  /**
+   * Os lançamentos que somam uma linha do relatório por categoria (PLU-360): os
+   * liquidados no período, do tipo e das categorias da linha (ou sem categoria),
+   * com o mesmo recorte das somas (fora cancelado e transferência). Do mais antigo
+   * ao mais recente, até `limite`; `total` e `soma` contam todos.
+   */
+  async liquidadosDoRelatorio(
+    filtro: { empresa?: CompanyKey; desde: Date; ate: Date; tipo: TipoDeLancamento; categoria: "sem" | readonly string[] },
+    papel: PapelNoFinanceiro,
+    limite: number,
+    agora: Date,
+  ): Promise<{ itens: (LancamentoResumo & { valorLiquidado: string })[]; total: number; soma: string }> {
+    if (tiposVisiveis(papel, filtro.tipo).length === 0) return { itens: [], total: 0, soma: "0.00" };
+    const where: Prisma.LancamentoWhereInput = {
+      tipo: filtro.tipo,
+      canceladoEm: null,
+      origem: { not: "transferencia" },
+      liquidadoEm: { gte: filtro.desde, lte: filtro.ate },
+      categoriaId: filtro.categoria === "sem" ? null : { in: [...filtro.categoria] },
+      ...(filtro.empresa ? { companyId: filtro.empresa } : {}),
+    };
+    const [total, somas, linhas] = await this.prisma.comContexto((tx) => Promise.all([
+      tx.lancamento.count({ where }),
+      tx.lancamento.aggregate({ where, _sum: { valor: true, valorRecebido: true } }),
+      tx.lancamento.findMany({ where, include: INCLUDE_DO_LANCAMENTO, orderBy: [{ liquidadoEm: "asc" }, { createdAt: "asc" }], take: limite }),
+    ]));
+    const [clientes, pedidos] = await Promise.all([this.nomesDeClientes(linhas.map((l) => l.clientId)), this.pedidosDasContas(linhas)]);
+    // A entrada liquidada sempre tem o recebido (CHECK `lancamentos_recebimento_coerente`); a saída liquida o valor.
+    const soma = (filtro.tipo === "entrada" ? somas._sum.valorRecebido : somas._sum.valor) ?? ZERO;
+    return {
+      itens: linhas.map((l) => ({ ...this.paraResumo(l, clientes, agora, pedidos), valorLiquidado: (l.tipo === "entrada" ? (l.valorRecebido ?? l.valor) : l.valor).toFixed(2) })),
+      total,
+      soma: soma.toFixed(2),
+    };
+  }
+
   /** As UCs dos clientes, pela função (o Financeiro não lê o CRM). */
   private async ucsDosClientes(clientes: string[]): Promise<Map<string, { id: string; codigo: string }[]>> {
     if (clientes.length === 0) return new Map();
