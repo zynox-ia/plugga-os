@@ -5,22 +5,6 @@
 .pagina { min-width: 0; }
 .subtitulo { max-width: 46ch; }
 
-/* O aviso discreto de que nada aqui é real. */
-.prototipo {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 28px;
-  padding: 0 10px;
-  border: 1px dashed color-mix(in srgb, var(--ui-warning, #865400) 45%, var(--ui-divider));
-  border-radius: var(--radius-full);
-  background: color-mix(in srgb, #f59e0b 8%, transparent);
-  color: var(--ui-warning, #865400);
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
 /* As cores do card de métrica vivem na grade de Suprimentos (MetricasDoTopo); esta grade as repete. */
 .metricas {
   --pv-texto: var(--ui-text, #0f294a);

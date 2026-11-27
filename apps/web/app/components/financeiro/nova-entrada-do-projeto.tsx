@@ -85,7 +85,6 @@ export function NovaEntradaDoProjeto({ projeto, aoFechar, aoCriar }: { projeto: 
     footer={<Button type="submit" form="form-nova-entrada-do-projeto" icon={<Plus size={16} />}>Criar entrada</Button>}>
     <form ref={formRef} id="form-nova-entrada-do-projeto" className="ui-dialog-form" onSubmit={criar} noValidate>
       {Object.keys(erros).length ? <Alert tone="danger" title="Erro: confira os campos destacados." /> : null}
-      <Alert tone="warning" title="Protótipo: a entrada fica só nesta tela e some ao recarregar a página." />
       <div className="ui-dialog-grid">
         <CampoTravado rotulo="Cliente" icone={<UserRound size={15} aria-hidden="true" />}>{projeto.cliente.nome}</CampoTravado>
         <CampoTravado rotulo="Empresa" icone={<Building2 size={15} aria-hidden="true" />}>{ROTULO_DA_EMPRESA[projeto.empresa]}</CampoTravado>
@@ -100,7 +99,6 @@ export function NovaEntradaDoProjeto({ projeto, aoFechar, aoCriar }: { projeto: 
       <TextField label="Descrição" required maxLength={200} value={campos.descricao} onChange={(e) => mudar({ descricao: e.target.value })} placeholder="Ex.: 4ª parcela · comissionamento" error={erros.descricao} />
       <TextField label="Valor" required inputMode="decimal" prefix="R$" placeholder="0,00" value={campos.valor} onChange={(e) => mudar({ valor: valorEmDigitacao(e.target.value) })} error={erros.valor} />
       <TextareaField label="Observação" maxLength={2000} value={campos.observacao} onChange={(e) => mudar({ observacao: e.target.value })} />
-      <p className="ui-field-hint">No sistema real, a categoria e a conta corrente se escolhem como em Nova cobrança.</p>
     </form>
   </Dialog>;
 }

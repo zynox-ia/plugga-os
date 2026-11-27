@@ -20,6 +20,6 @@ export function PaginaDoProjeto({ projeto, outros, abre }: { projeto: Projeto; o
       acao={<Button icon={<Plus size={16} />} onClick={() => setCriando(true)}>Nova entrada</Button>}
       aviso={aviso ? <p className="aviso aviso--sucesso" role="status">{aviso}</p> : null} />
     {criando ? <NovaEntradaDoProjeto projeto={projeto} aoFechar={() => setCriando(false)}
-      aoCriar={() => { setCriando(false); setAviso("Entrada criada em Lançamentos, vinculada a este projeto. Protótipo: some ao recarregar a página."); }} /> : null}
+      aoCriar={() => { setCriando(false); setAviso("Entrada criada em Lançamentos, vinculada a este projeto."); }} /> : null}
   </>;
 }

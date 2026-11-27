@@ -12,7 +12,7 @@ import detalhes from "../pipelines/detalhes-do-lead-modal.module.css";
 import visao from "../pipelines/resumo-do-lead.module.css";
 import { EmpresaComPonto } from "../suprimentos/empresa";
 import { Badge, Button } from "../ui";
-import { iconeDoProjeto, SeloDoPrototipo, TOM_DA_SITUACAO } from "./centro-de-custo-partes";
+import { iconeDoProjeto, TOM_DA_SITUACAO } from "./centro-de-custo-partes";
 import styles from "./centro-de-custo.module.css";
 import { NovaEntradaDoProjeto } from "./nova-entrada-do-projeto";
 import {
@@ -70,8 +70,8 @@ export function FichaDoProjeto({ projeto: p, outros, abre, hrefDe, aoFechar }: {
     evento.preventDefault(); setAba(abas[j]!.id); botoes.current[j]?.focus();
   }
 
-  // Os selos aparecem à direita do título; quando a faixa aperta (até 1100 px), descem para a linha do subtítulo.
-  const selos = <><SeloDoPrototipo /><Badge tone={TOM_DA_SITUACAO[p.situacao]}>{ROTULO_DA_SITUACAO[p.situacao]}</Badge></>;
+  // O selo da situação aparece à direita do título; quando a faixa aperta (até 1100 px), descem para a linha do subtítulo.
+  const selos = <Badge tone={TOM_DA_SITUACAO[p.situacao]}>{ROTULO_DA_SITUACAO[p.situacao]}</Badge>;
 
   return <Modal rotulo={`Centro de custo de ${p.nome}`} aoFechar={aoFechar} largura="larga" className={detalhes.modal}>
     <div className={detalhes.layout}>
@@ -136,6 +136,6 @@ export function FichaDoProjeto({ projeto: p, outros, abre, hrefDe, aoFechar }: {
       </div>
     </div>
     {criando ? <NovaEntradaDoProjeto projeto={p} aoFechar={() => setCriando(false)}
-      aoCriar={() => { setCriando(false); setAba("entradas"); setAviso("Entrada criada em Lançamentos, vinculada a este projeto. Protótipo: some ao recarregar a página."); }} /> : null}
+      aoCriar={() => { setCriando(false); setAba("entradas"); setAviso("Entrada criada em Lançamentos, vinculada a este projeto."); }} /> : null}
   </Modal>;
 }

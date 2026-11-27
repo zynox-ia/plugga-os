@@ -32,7 +32,7 @@ import { CardDeMetrica } from "../suprimentos/card-de-metrica";
 import { EmpresaComPonto, PontoDaEmpresa } from "../suprimentos/empresa";
 import { FiltroComBusca } from "../suprimentos/menu-com-busca";
 import { Badge, Button, IconSearch } from "../ui";
-import { BarraDoOrcamento, iconeDoProjeto, Orcamento, SeloDoPrototipo, TOM_DA_SITUACAO } from "./centro-de-custo-partes";
+import { BarraDoOrcamento, iconeDoProjeto, Orcamento, TOM_DA_SITUACAO } from "./centro-de-custo-partes";
 import styles from "./centro-de-custo.module.css";
 import { FichaDoProjeto } from "./ficha-do-projeto";
 import estilosCards from "./lancamentos.module.css";
@@ -140,7 +140,6 @@ export function CentroDeCustoView({ filtros, projetos: doServidor, clientes, pro
         <h1 className={estilosPipelines.titulo}>Centro de custo</h1>
         <h2 className={`${estilosPipelines.subtitulo} ${styles.subtitulo}`}>{subtitulo}</h2>
       </div>
-      <div className={estilosPipelines.acoes}><SeloDoPrototipo /></div>
     </header>
 
     <div className={styles.metricas} role="group" aria-label="Resumo dos projetos mostrados" style={{ "--colunas": 4 } as CSSProperties}>
@@ -179,7 +178,7 @@ export function CentroDeCustoView({ filtros, projetos: doServidor, clientes, pro
     {aberto ? <FichaDoProjeto key={aberto.id} projeto={aberto} outros={projetos.filter((p) => p.cliente.id === aberto.cliente.id && p.id !== aberto.id)} abre={abre}
       hrefDe={hrefDaFicha} aoFechar={() => router.push(hrefDosProjetos(filtros), { scroll: false })} /> : null}
     {criandoPara ? <NovaEntradaDoProjeto projeto={criandoPara} aoFechar={() => setCriandoPara(null)}
-      aoCriar={() => { setAviso(`Entrada criada em Lançamentos, vinculada a ${criandoPara.nome}. Protótipo: some ao recarregar a página.`); setCriandoPara(null); }} /> : null}
+      aoCriar={() => { setAviso(`Entrada criada em Lançamentos, vinculada a ${criandoPara.nome}.`); setCriandoPara(null); }} /> : null}
   </div>;
 }
 

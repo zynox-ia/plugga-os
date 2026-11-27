@@ -1,4 +1,4 @@
-import { ArrowDownLeft, ArrowLeft, ArrowUpRight, Boxes, Building2, CalendarDays, ClipboardList, Clock, FileText, Fuel, HardHat, Info, Landmark, Package, PanelsTopLeft, Scale, ShoppingCart, Sparkles, TriangleAlert, Truck, User, Users, Wallet, type LucideIcon } from "lucide-react";
+import { ArrowDownLeft, ArrowLeft, ArrowUpRight, Boxes, CalendarDays, ClipboardList, Clock, FileText, Fuel, HardHat, Info, Landmark, Package, PanelsTopLeft, Scale, ShoppingCart, Sparkles, TriangleAlert, Truck, User, Users, Wallet, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -26,7 +26,7 @@ import estilosPipelines from "../pipelines/tela-pipelines.module.css";
 import { CardDeMetrica } from "../suprimentos/card-de-metrica";
 import { EmpresaComPonto } from "../suprimentos/empresa";
 import { Badge } from "../ui";
-import { BarraDoOrcamento, iconeDoProjeto, SeloDoPrototipo, TOM_DA_SITUACAO } from "./centro-de-custo-partes";
+import { BarraDoOrcamento, iconeDoProjeto, TOM_DA_SITUACAO } from "./centro-de-custo-partes";
 import styles from "./centro-de-custo.module.css";
 import telas from "./financeiro-telas.module.css";
 
@@ -64,7 +64,7 @@ const ICONE_DA_CATEGORIA: Record<CategoriaDaSaida, LucideIcon> = {
 function Origem({ codigo, tela, abre }: { codigo: string; tela: keyof TelasDeOrigem; abre: TelasDeOrigem }) {
   if (!abre[tela]) return <span>{codigo}</span>;
   const destino = ROTA_DA_ORIGEM[tela];
-  return <Link href={destino.href} className={styles.origem} title={`Protótipo: abre ${destino.tela}. No sistema real, abre a ficha de ${codigo}.`}>{codigo}</Link>;
+  return <Link href={destino.href} className={styles.origem} title={`Abrir ${codigo} em ${destino.tela}`}>{codigo}</Link>;
 }
 
 export function Bloco({ id, titulo, icone, sub, total, acao, children }: { id?: string; titulo: string; icone: ReactNode; sub: ReactNode; total?: { valor: string; nota?: string }; acao?: ReactNode; children: ReactNode }) {
@@ -161,7 +161,7 @@ export function EntradasDoProjeto({ projeto: p, abre, acao }: { projeto: Projeto
       <span className={styles.marca} aria-hidden="true">{e.nova ? <Sparkles size={15} /> : <ArrowDownLeft size={15} />}</span>
       <span className={styles.texto}>
         <strong>{e.descricao}</strong>
-        <small>{e.nova ? <span className={`${styles.selo} ${styles.seloNovo}`}>Nova · só nesta sessão</span> : <Origem codigo={e.codigo} tela="lancamentos" abre={abre} />} · cobrança · vence {dataCurta(e.vencimento)}</small>
+        <small>{e.nova ? <span className={`${styles.selo} ${styles.seloNovo}`}>Nova</span> : <Origem codigo={e.codigo} tela="lancamentos" abre={abre} />} · cobrança · vence {dataCurta(e.vencimento)}</small>
       </span>
       <span className={styles.lado}><strong>{reais(e.valor)}</strong><small>{situacaoDaEntrada(e)}</small></span>
     </li>)}</ul> : <p className={styles.vazioDoBloco}>Nenhuma cobrança vinculada a este projeto.</p>}
@@ -227,7 +227,7 @@ export function ComprasDoProjeto({ projeto: p, abre }: { projeto: Projeto; abre:
 export function DadosDoProjeto({ projeto: p, abre, className }: { projeto: Projeto; abre: TelasDeOrigem; className: string | undefined }) {
   const r = resumoDoProjeto(p);
   return <dl className={className}>
-    <div><dt>Cliente</dt><dd>{abre.clientes ? <Link href={ROTA_DA_ORIGEM.clientes.href} className={styles.origem} title="Protótipo: abre Clientes. No sistema real, abre a ficha do cliente.">{p.cliente.nome}</Link> : p.cliente.nome}</dd></div>
+    <div><dt>Cliente</dt><dd>{abre.clientes ? <Link href={ROTA_DA_ORIGEM.clientes.href} className={styles.origem} title={`Abrir ${p.cliente.nome} em Clientes`}>{p.cliente.nome}</Link> : p.cliente.nome}</dd></div>
     <div><dt>Empresa</dt><dd><EmpresaComPonto empresa={p.empresa} /></dd></div>
     <div><dt>Tipo</dt><dd>{ROTULO_DA_CLASSE[p.classe]} · {p.tipo}</dd></div>
     <div><dt>Situação</dt><dd>{ROTULO_DA_SITUACAO[p.situacao]}</dd></div>
@@ -294,7 +294,6 @@ export function ProjetoDoCentroDeCusto({ projeto: p, outros, abre, acao, aviso, 
       </div>
       <div className={estilosPipelines.acoes}>
         <Badge tone={TOM_DA_SITUACAO[p.situacao]}>{ROTULO_DA_SITUACAO[p.situacao]}</Badge>
-        <SeloDoPrototipo />
         {acao}
       </div>
     </header>
@@ -320,7 +319,6 @@ export function ProjetoDoCentroDeCusto({ projeto: p, outros, abre, acao, aviso, 
         <CadastroDoProjeto projeto={p} abre={abre} />
         <VencimentosDoProjeto projeto={p} hoje={hojeEmManaus()} />
         <OutrosProjetos projeto={p} outros={outros} hrefDe={hrefDe} />
-        <p className={styles.nota}><Building2 size={13} aria-hidden="true" />Protótipo para avaliação: projetos, clientes, valores e códigos desta tela são de exemplo.</p>
       </aside>
     </div>
   </div>;
