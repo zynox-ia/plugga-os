@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { currencyFieldText, displayCurrency, maskCurrencyTyping, MAX_CURRENCY_DIGITS, parseCurrencyInput, parseCurrencyPaste } from "../app/components/ui/currency-value.ts";
+import { currencyFieldText, displayCurrency, maskCurrencyChange, maskCurrencyTyping, signError, MAX_CURRENCY_DIGITS, parseCurrencyInput, parseCurrencyPaste } from "../app/components/ui/currency-value.ts";
 
 describe("entrada de valores em reais", () => {
   it("interpreta inteiros, centavos e valores colados sem mudar a escala", () => {
@@ -127,11 +127,76 @@ describe("valor que vem de fora do campo", () => {
     assert.equal(currencyFieldText("9007199254740993.42"), "9.007.199.254.740.993,42");
     assert.equal(currencyFieldText(""), "");
   });
-  it("negativo só aparece onde é permitido", () => {
-    assert.equal(currencyFieldText("-200.00", true), "-200,00");
-    assert.equal(currencyFieldText("-200.00"), "");
+  it("negativo aparece como veio, com ou sem permissão: nunca some em silêncio", () => {
+    assert.equal(currencyFieldText("-200.00"), "-200,00");
+    assert.equal(currencyFieldText("-200.00"), "-200,00");
+  });
+  it("sem permissão, o negativo que veio de fora ganha um aviso; com permissão ou positivo, nenhum", () => {
+    assert.equal(signError("-200,00", false), "Este campo não aceita valor negativo.");
+    assert.equal(signError("-200,00", true), undefined);
+    assert.equal(signError("200,00", false), undefined);
+    assert.equal(signError("", false), undefined);
+    assert.equal(signError("-", false), "Este campo não aceita valor negativo.");
   });
   it("valor inválido vira campo vazio", () => {
     assert.equal(currencyFieldText("abc"), "");
+  });
+});
+
+/** O que o campo emite para cada tipo de evento de entrada, no mesmo passo do componente. */
+const entrada = (raw: string, previous: string, inputType?: string, data?: string | null, opcoes = {}) => maskCurrencyChange(raw, previous, { ...(inputType ? { inputType } : {}), ...(data !== undefined ? { data } : {}) }, opcoes);
+
+describe("o valor emitido depende de como o texto entrou", () => {
+  it("digitar um algarismo por vez segue pelos centavos", () => {
+    let texto = "";
+    let valor = "";
+    for (const tecla of "123456") { const r = entrada(texto + tecla, texto, "insertText", tecla)!; texto = r.text; valor = r.value; }
+    assert.deepEqual({ texto, valor }, { texto: "1.234,56", valor: "1234.56" });
+  });
+  it("fill (o texto inteiro substituído de uma vez) é lido como colar: 25000 vira 25.000,00, não 250,00", () => {
+    assert.deepEqual(entrada("25000", "", "insertText", "25000"), { text: "25.000,00", value: "25000.00" });
+    assert.deepEqual(entrada("25000", "1,23", "insertText", "25000"), { text: "25.000,00", value: "25000.00" });
+    assert.deepEqual(entrada("1.234,56", "", "insertText", "1.234,56"), { text: "1.234,56", value: "1234.56" });
+    assert.deepEqual(entrada("1234.5", "", "insertText", "1234.5"), { text: "1.234,50", value: "1234.50" });
+  });
+  it("colar, arrastar texto e correção do navegador (autofill, sugestão) também são lidos como colar", () => {
+    for (const tipo of ["insertFromPaste", "insertFromDrop", "insertReplacementText"]) {
+      assert.deepEqual(entrada("1,0025000", "1,00", tipo, "25000"), { text: "25.000,00", value: "25000.00" }, tipo);
+      assert.deepEqual(entrada("R$ 1.234,56", "", tipo, null), { text: "1.234,56", value: "1234.56" }, `${tipo} sem data`);
+    }
+  });
+  it("sem tipo de evento (autofill antigo, evento sintético), mais de um caractere novo conta como bloco", () => {
+    assert.deepEqual(entrada("25000", ""), { text: "25.000,00", value: "25000.00" });
+    assert.deepEqual(entrada("1,235", "1,23"), { text: "12,35", value: "12.35" }, "um caractere novo é digitação");
+  });
+  it("bloco que não é valor é ignorado (o campo fica como estava)", () => {
+    assert.equal(entrada("abc", "1,23", "insertText", "abc"), undefined);
+    assert.equal(entrada("1,23abc", "1,23", "insertFromDrop", "abc"), undefined);
+    assert.equal(entrada("1e6", "", "insertText", "1e6"), undefined);
+  });
+  it("apagar e digitar sobre a seleção inteira continuam sendo digitação", () => {
+    assert.deepEqual(entrada("", "1.234,56", "deleteContentBackward"), { text: "", value: "" });
+    assert.deepEqual(entrada("123,45", "1.234,56", "deleteContentBackward"), { text: "123,45", value: "123.45" });
+    assert.deepEqual(entrada("5", "1.234,56", "insertText", "5"), { text: "0,05", value: "0.05" });
+  });
+  it("bloco negativo só com permissão", () => {
+    assert.equal(entrada("-200", "", "insertText", "-200"), undefined);
+    assert.deepEqual(entrada("-200", "", "insertText", "-200", { allowNegative: true }), { text: "-200,00", value: "-200.00" });
+  });
+});
+
+describe("teto de algarismos configurável", () => {
+  it("ao digitar, passa do teto é ignorado; o padrão continua sendo o atual", () => {
+    assert.equal(maskCurrencyTyping("99999999999999999", "", false, 14).text, "999.999.999.999,99");
+    assert.equal(maskCurrencyTyping("99999999999999999", "", false).text, "9.999.999.999.999,99");
+  });
+  it("ao colar, o que passa do teto é recusado (o CRM aceita 12 inteiros e 2 centavos)", () => {
+    assert.deepEqual(parseCurrencyPaste("999999999999,99", false, 14), { text: "999.999.999.999,99", value: "999999999999.99" });
+    assert.equal(parseCurrencyPaste("9999999999999,99", false, 14), undefined);
+    assert.deepEqual(parseCurrencyPaste("9999999999999,99"), { text: "9.999.999.999.999,99", value: "9999999999999.99" });
+  });
+  it("fill e colar respeitam o teto", () => {
+    assert.equal(entrada("9999999999999", "", "insertText", "9999999999999", { maxDigits: 14 }), undefined);
+    assert.deepEqual(entrada("999999999999", "", "insertText", "999999999999", { maxDigits: 14 }), { text: "999.999.999.999,00", value: "999999999999.00" });
   });
 });

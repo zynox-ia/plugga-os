@@ -17,7 +17,7 @@ export function displayCurrency(value: string): string {
   return `${BigInt(whole).toLocaleString("pt-BR")},${fraction.padEnd(2, "0")}`;
 }
 
-/** Algarismos que o campo aceita (13 inteiros e 2 centavos), dentro do que a API guarda. */
+/** Teto padrão de algarismos da máscara (13 inteiros e 2 centavos); cada tela pode pedir o seu (`maxDigits`), conforme o contrato da API. */
 export const MAX_CURRENCY_DIGITS = 15;
 
 export type MaskedCurrency = { text: string; value: string };
@@ -44,31 +44,53 @@ function fromDigits(digits: string, negative: boolean): MaskedCurrency {
  * vira só algarismos, que entram pelos centavos. `previous` é o que o campo mostrava antes e só serve
  * para distinguir apagar de digitar zero. Letras e símbolos somem; o hífen alterna o sinal onde é permitido.
  */
-export function maskCurrencyTyping(raw: string, previous: string, allowNegative = false): MaskedCurrency {
+export function maskCurrencyTyping(raw: string, previous: string, allowNegative = false, maxDigits = MAX_CURRENCY_DIGITS): MaskedCurrency {
   const negative = allowNegative && ((raw.match(minus)?.length ?? 0) % 2 === 1);
   const all = raw.replace(/\D/g, "");
-  const digits = all.slice(0, MAX_CURRENCY_DIGITS).replace(/^0+(?=\d)/, "");
+  const digits = all.slice(0, maxDigits).replace(/^0+(?=\d)/, "");
   const erased = all.length < previous.replace(/\D/g, "").length;
   if (/^0*$/.test(digits) && (erased || all === "")) return { text: negative ? "-" : "", value: "" };
   return fromDigits(digits, negative);
 }
 
 /** Valor colado ("1.234,56", "1234,56", "1234.56", "R$ 1.234,56"): `undefined` quando não é valor em reais. */
-export function parseCurrencyPaste(pasted: string, allowNegative = false): MaskedCurrency | undefined {
+export function parseCurrencyPaste(pasted: string, allowNegative = false, maxDigits = MAX_CURRENCY_DIGITS): MaskedCurrency | undefined {
   const text = pasted.trim().replace(/^R\$\s*/, "").replace(/^−/, "-");
   const negative = text.startsWith("-");
   if (negative && !allowNegative) return undefined;
   const parsed = parseCurrencyInput(negative ? text.slice(1) : text);
   if (!parsed) return undefined;
   const [whole = "0", cents = "00"] = parsed.split(".");
-  if (whole.replace(/^0+(?=\d)/, "").length + 2 > MAX_CURRENCY_DIGITS) return undefined;
+  if (whole.replace(/^0+(?=\d)/, "").length + 2 > maxDigits) return undefined;
   return fromDigits(`${whole}${cents}`.replace(/^0+(?=\d)/, ""), negative);
 }
 
-/** O valor decimal que vem de fora ("2640.00", "-200.00") como o campo o mostra. Vazio ou inválido, vazio. */
-export function currencyFieldText(value: string, allowNegative = false): string {
+/**
+ * Uma alteração do campo, lida pelo jeito que o texto entrou (`inputType` e `data` do evento de entrada).
+ * Um algarismo digitado segue pelos centavos; um bloco de texto (colar, arrastar, autofill, sugestão do
+ * navegador, `fill`) é lido como colar ("25000" é 25.000,00). `undefined`: o bloco não é valor em reais e o
+ * campo fica como estava.
+ */
+export function maskCurrencyChange(raw: string, previous: string, input: { inputType?: string | null; data?: string | null }, options: { allowNegative?: boolean; maxDigits?: number } = {}): MaskedCurrency | undefined {
+  const { allowNegative = false, maxDigits = MAX_CURRENCY_DIGITS } = options;
+  const tipo = input.inputType ?? undefined;
+  const novos = raw.replace(/D/g, "").length - previous.replace(/D/g, "").length;
+  const bloco = tipo === undefined ? novos > 1
+    : replacementInputs.has(tipo) || (tipo.startsWith("insert") && (input.data?.length ?? 0) > 1);
+  if (!bloco) return maskCurrencyTyping(raw, previous, allowNegative, maxDigits);
+  return parseCurrencyPaste(input.data || raw, allowNegative, maxDigits);
+}
+
+const replacementInputs = new Set(["insertFromPaste", "insertFromDrop", "insertReplacementText"]);
+
+/** O valor decimal que vem de fora ("2640.00", "-200.00") como o campo o mostra. Um negativo aparece como veio, mesmo onde não é permitido (veja `signError`). Vazio ou inválido, vazio. */
+export function currencyFieldText(value: string): string {
   const negative = value.startsWith("-");
-  if (negative && !allowNegative) return "";
   const shown = displayCurrency(negative ? value.slice(1) : value);
   return shown && negative ? `-${shown}` : shown;
+}
+
+/** O aviso quando o campo mostra um negativo que a tela não aceita (valor vindo de fora): ele não some em silêncio. */
+export function signError(text: string, allowNegative: boolean): string | undefined {
+  return !allowNegative && text.startsWith("-") ? "Este campo não aceita valor negativo." : undefined;
 }
