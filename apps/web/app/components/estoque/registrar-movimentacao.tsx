@@ -4,16 +4,18 @@ import {
   type BuscarClientesDeCompraResposta,
   type CompanyKey,
   type ItemDeEstoqueNaLista,
-  type ListarPedidosDeCompraResposta,
   type Movimentacao,
   type ObraDeCompra,
   type OpcoesDeEstoqueResposta,
+  type PedidoParaEntrada,
+  type PedidosParaEntradaResposta,
 } from "@plugga/shared";
 import { ArrowRight, Building2, Check, Download, FileText, HardHat, History, MapPin, Package, Search, Upload, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import { enviar, type ErroDoFormulario } from "../../lib/clientes";
-import { hojeEmManaus, numeroDoPedido, ROTULO_DA_EMPRESA } from "../../lib/compras";
+import { hojeEmManaus, ROTULO_DA_EMPRESA } from "../../lib/compras";
+import { dicaDoPedido, opcaoDoPedido, problemaDaQuantidadeDoPedido, type PedidosDoItem } from "../../lib/entrada-por-compra";
 import { numeroDigitado, paraContrato, previaDaMovimentacao, qtd, type TipoRegistravel } from "../../lib/estoque";
 import { PontoDaEmpresa } from "../suprimentos/empresa";
 import { opcoesDeItens } from "../suprimentos/ligacao-com-estoque";
@@ -39,7 +41,6 @@ const DESTINOS: OpcaoDoMenu[] = [
   { value: "interno", label: "Uso interno", icon: <HardHat /> },
 ];
 
-type Pedido = ListarPedidosDeCompraResposta["itens"][number];
 
 /** Registrar movimentação (PLU-333): entrada, saída ou ajuste. A empresa filtra o item; trocar a empresa limpa o item. */
 export function RegistrarMovimentacao({ itens, itemInicial, tipoInicial = "entrada", aoCancelar, aoRegistrar, aoCadastrarItem }: {
@@ -68,13 +69,16 @@ export function RegistrarMovimentacao({ itens, itemInicial, tipoInicial = "entra
   const [contado, setContado] = useState("");
   const [observacao, setObservacao] = useState("");
   const [obras, setObras] = useState<ObraDeCompra[] | null>(null);
-  const [pedidos, setPedidos] = useState<Pedido[] | null>(null);
+  // A lista é do item em que foi carregada: trocar o item a descarta.
+  const [pedidos, setPedidos] = useState<{ itemId: string; lista: PedidoParaEntrada[] | "erro" } | null>(null);
   const [erro, setErro] = useState<ErroDoFormulario | null>(null);
   const [enviando, setEnviando] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const focar = useRef(false);
 
   const item = itens.find((i) => i.id === itemId) ?? null;
+  const pedidosDoItem: PedidosDoItem = !itemId ? "sem_item" : pedidos && pedidos.itemId === itemId ? pedidos.lista : "carregando";
+  const pedidoEscolhido = Array.isArray(pedidosDoItem) ? pedidosDoItem.find((p) => p.id === pedidoId) ?? null : null;
   const opcoes = useMemo(() => opcoesDeItens(itens, empresa), [itens, empresa]);
   const e = (campo: string) => erro?.porCampo[campo] || erro?.porCampo[campo.split(".").at(-1) ?? campo] || undefined;
 
@@ -86,13 +90,14 @@ export function RegistrarMovimentacao({ itens, itemInicial, tipoInicial = "entra
     return () => controle.abort();
   }, [tipo, obras]);
 
-  // Pedidos de compra da empresa, para ligar a entrada por compra.
+  // Pedidos que ainda aceitam entrada do item escolhido, pela rota do Estoque (basta a tela de Estoque).
   useEffect(() => {
-    if (tipo !== "entrada" || origem !== "compra" || !empresa) return;
+    if (tipo !== "entrada" || origem !== "compra" || !itemId) return;
     const controle = new AbortController();
-    void enviar<ListarPedidosDeCompraResposta>(`/api/suprimentos/compras/pedidos?${new URLSearchParams({ empresa })}`, "GET", undefined, controle.signal).then((r) => { if (!controle.signal.aborted) setPedidos(r.ok ? r.dados.itens.filter((p) => p.situacao !== "cancelado") : []); });
+    void enviar<PedidosParaEntradaResposta>(`/api/suprimentos/estoque/itens/${encodeURIComponent(itemId)}/pedidos-para-entrada`, "GET", undefined, controle.signal)
+      .then((r) => { if (!controle.signal.aborted) setPedidos({ itemId, lista: r.ok ? r.dados.itens : "erro" }); });
     return () => controle.abort();
-  }, [tipo, origem, empresa]);
+  }, [tipo, origem, itemId]);
 
   useEffect(() => {
     if (destino !== "cliente" || buscaCliente.trim().length < 2) { setClientes(null); return; }
@@ -142,6 +147,8 @@ export function RegistrarMovimentacao({ itens, itemInicial, tipoInicial = "entra
       if (tipo === "entrada") {
         const c = numeroDigitado(custo, 2);
         if (c === null || c <= 0) porCampo.custoUnitario = "informe o custo unitário, como 9,50.";
+        const doPedido = origem === "compra" ? problemaDaQuantidadeDoPedido(pedidoEscolhido, q, item?.unidade ?? "un") : null;
+        if (doPedido && !porCampo.quantidade) porCampo.quantidade = doPedido;
       }
       if (tipo === "saida") {
         if (destino === "obra" && !obraId) porCampo["destino.obraId"] = "escolha a obra.";
@@ -152,7 +159,7 @@ export function RegistrarMovimentacao({ itens, itemInicial, tipoInicial = "entra
 
     const comum = { itemId: item!.id, data, observacao: observacao.trim() || null };
     const corpo = tipo === "entrada"
-      ? { tipo, ...comum, quantidade: paraContrato(q!, 3), custoUnitario: numeroDigitado(custo, 2)!.toFixed(2), origem: { tipo: origem, pedidoId: origem === "compra" && pedidoId ? pedidoId : null } }
+      ? { tipo, ...comum, quantidade: paraContrato(q!, 3), custoUnitario: numeroDigitado(custo, 2)!.toFixed(2), origem: { tipo: origem, pedidoId: origem === "compra" && pedidoEscolhido ? pedidoEscolhido.id : null } }
       : tipo === "saida"
         ? { tipo, ...comum, quantidade: paraContrato(q!, 3), destino: { tipo: destino, obraId: destino === "obra" ? obraId : null, clientId: destino === "cliente" ? cliente!.id : null, area: destino === "interno" ? area.trim() || null : null } }
         : { tipo, ...comum, saldoContado: paraContrato(contadoN!, 3), observacao: observacao.trim() };
@@ -177,7 +184,7 @@ export function RegistrarMovimentacao({ itens, itemInicial, tipoInicial = "entra
         <div className={styles.semDica}><DatePicker label="Data" required max={hoje} value={data} onChange={setData} error={e("data")} /></div>
       </div>
       <CampoDeMenu label="Empresa" required options={EMPRESAS} value={empresa ?? undefined} onChange={trocarEmpresa} placeholder="Selecione a empresa" icon={<Building2 />} error={e("empresa")} />
-      <CampoDeMenu label="Item" required options={opcoes} value={itemId ?? undefined} onChange={(v) => setItemId(v)} disabled={!empresa}
+      <CampoDeMenu label="Item" required options={opcoes} value={itemId ?? undefined} onChange={(v) => { setItemId(v); setPedidoId(""); }} disabled={!empresa}
         placeholder={empresa ? "Selecione o item" : "Escolha a empresa primeiro"} icon={<Package />} hint={dicaDoItem} error={e("itemId")} />
 
       {item && previa ? <div className={styles.previa} aria-live="polite">
@@ -196,9 +203,10 @@ export function RegistrarMovimentacao({ itens, itemInicial, tipoInicial = "entra
       {tipo === "entrada" ? <>
         <div className="ui-dialog-grid">
           <CampoDeMenu label="Origem" options={ORIGENS} value={origem} onChange={(v) => { setOrigem(v as typeof origem); setPedidoId(""); }} />
-          {origem === "compra" ? <CampoDeMenu label="Pedido de compra" icon={<FileText />} value={pedidoId || "sem"} onChange={(v) => setPedidoId(v === "sem" ? "" : v)} error={e("origem.pedidoId")}
-            options={[{ value: "sem", label: "Sem pedido", icon: <FileText /> }, ...(pedidos ?? []).map((p) => ({ value: p.id, label: `${numeroDoPedido(p.numero)} · ${p.titulo}`, icon: <FileText /> }))]}
-            hint={!empresa ? "Escolha a empresa para ver os pedidos dela." : undefined} /> : <span />}
+          {origem === "compra" ? <CampoDeMenu label="Pedido de compra" icon={<FileText />} value={pedidoEscolhido ? pedidoId : "sem"} onChange={(v) => setPedidoId(v === "sem" ? "" : v)} error={e("origem.pedidoId")}
+            options={[{ value: "sem", label: "Sem pedido", icon: <FileText /> }, ...(Array.isArray(pedidosDoItem) ? pedidosDoItem : []).map((p) => ({ ...opcaoDoPedido(p, unidade), icon: <FileText /> }))]}
+            disabled={!Array.isArray(pedidosDoItem) || pedidosDoItem.length === 0}
+            hint={dicaDoPedido(pedidosDoItem, pedidoEscolhido, unidade)} /> : <span />}
         </div>
         <div className="ui-dialog-grid">
           <TextField label="Quantidade" required inputMode="decimal" autoComplete="off" placeholder="0" suffix={unidade} value={quantidade} onChange={(ev) => setQuantidade(ev.target.value)} error={e("quantidade")} />
