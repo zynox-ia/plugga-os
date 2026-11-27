@@ -11,12 +11,17 @@ import { diasParaGerar, prazoDaOcorrencia } from "./tarefas.rules";
  * uma vez só. Serve à leitura (no login de quem lê, com RLS) e ao agendador das
  * 08h (no papel de jobs). Devolve quantas ocorrências criou.
  */
-export async function gerarOcorrencias(tx: Prisma.TransactionClient, ate: string, filtro: { departamento?: string; tarefaId?: string } = {}): Promise<number> {
+export async function gerarOcorrencias(
+  tx: Prisma.TransactionClient,
+  ate: string,
+  /** `departamentos`: só estes (o agendador passa os de portão aberto, PLU-336). */
+  filtro: { departamento?: string; departamentos?: readonly string[]; tarefaId?: string } = {},
+): Promise<number> {
   const limite = inicioDoDiaEmManaus(ate);
   const tarefas = await tx.tarefa.findMany({
     where: {
       encerradaEm: null,
-      ...(filtro.departamento ? { departamento: filtro.departamento } : {}),
+      ...(filtro.departamento ? { departamento: filtro.departamento } : filtro.departamentos ? { departamento: { in: [...filtro.departamentos] } } : {}),
       ...(filtro.tarefaId ? { id: filtro.tarefaId } : {}),
       OR: [{ geradaAte: null }, { geradaAte: { lt: limite } }],
     },

@@ -1,5 +1,6 @@
 import {
   caiNoDia,
+  departamentosComTarefas,
   semanaDe,
   somarDias,
   type Acesso,
@@ -26,6 +27,14 @@ export const PORTAO_DO_DEPARTAMENTO: Record<DepartamentoComTarefas, "FINANCEIRO_
   "engenharia-obras": "ENGENHARIA_LIGADA",
   "energia-opm": null,
 };
+
+/** Os departamentos com o portão aberto; portão sem valor conta como fechado. */
+export function departamentosLigados(lerPortao: (portao: "FINANCEIRO_LIGADO" | "ENGENHARIA_LIGADA") => boolean | undefined): DepartamentoComTarefas[] {
+  return departamentosComTarefas.filter((departamento) => {
+    const portao = PORTAO_DO_DEPARTAMENTO[departamento];
+    return portao === null || lerPortao(portao) === true;
+  });
+}
 
 /** Quem é do departamento: alguma tela dele, ou a plataforma (a mesma regra do RLS). */
 export function noDepartamento(acesso: Acesso | undefined, departamento: DepartamentoComTarefas): boolean {

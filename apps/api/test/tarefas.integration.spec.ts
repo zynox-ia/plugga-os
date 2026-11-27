@@ -39,6 +39,8 @@ describe.skipIf(!HABILITADO)("tarefas: ocorrências no Postgres", { timeout: PRA
   let repo: PrismaTarefasRepository;
   let servico: TarefasService;
   let ambienteValidado = false;
+  /** Os portões abertos, para a API de Tarefas e o agendador. */
+  const config = { get: (chave: string) => (chave === "ENGENHARIA_LIGADA" || chave === "FINANCEIRO_LIGADO" ? true : undefined) };
 
   const principal = (nome: string): AuthPrincipal => ({ id: pessoas.get(nome)!.id, kind: "user", acesso: pessoas.get(nome)!.acesso });
   const como = <T>(nome: string, fazer: () => Promise<T>) => contextoBanco.run({ sessionHash: pessoas.get(nome)!.hash, agentHash: undefined }, fazer);
@@ -78,7 +80,6 @@ describe.skipIf(!HABILITADO)("tarefas: ocorrências no Postgres", { timeout: PRA
     app = new PrismaService({ datasources: { db: { url: await criarLogin(login, "plugga_runtime") } } });
     jobs = new PrismaClient({ datasources: { db: { url: await criarLogin(loginJobs, "plugga_jobs_runtime") } } });
     repo = new PrismaTarefasRepository(app, new AuditAppender());
-    const config = { get: (chave: string) => (chave === "ENGENHARIA_LIGADA" || chave === "FINANCEIRO_LIGADO" ? true : undefined) };
     servico = new TarefasService(repo, {} as never, config as never, () => AGORA);
 
     for (const id of ["plugga", "waze"]) await root.company.upsert({ where: { id }, create: { id, name: id }, update: {} });
@@ -148,7 +149,7 @@ describe.skipIf(!HABILITADO)("tarefas: ocorrências no Postgres", { timeout: PRA
       await t.ocorrenciaDeTarefa.deleteMany({ where: { tarefaId: tarefa.id } });
       await t.tarefa.update({ where: { id: tarefa.id }, data: { geradaAte: null } });
     });
-    const handler = new GerarOcorrenciasDoDiaHandler(jobs as never, () => AGORA);
+    const handler = new GerarOcorrenciasDoDiaHandler(jobs as never, config as never, () => AGORA);
     const primeira = await handler.process();
     expect(primeira.logRef).toMatch(/ate=2026-11-29/);
     const dias = (await root.ocorrenciaDeTarefa.findMany({ where: { tarefaId: tarefa.id }, orderBy: { dia: "asc" }, select: { dia: true, concluidaEm: true } }));

@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { semanaDe } from "@plugga/shared";
 
 import { diaEmManaus } from "../compras/dias-uteis";
@@ -6,6 +7,7 @@ import type { JobHandler, JobResult } from "../jobs/queue/job-handler";
 import type { AgendamentoDiario } from "../jobs/queue/jobs-queue.port";
 import { PrismaJobsService } from "../prisma/prisma-jobs.service";
 import { gerarOcorrencias } from "./geracao-de-ocorrencias";
+import { departamentosLigados } from "./tarefas.rules";
 
 export const GERAR_OCORRENCIAS_JOB_KEY = "tarefas.gerar_ocorrencias_do_dia";
 
@@ -20,6 +22,9 @@ export const RELOGIO_DO_AGENDADOR = Symbol("RELOGIO_DO_AGENDADOR");
  * departamentos até o fim da semana, no papel de jobs. A leitura também gera o
  * que faltar, então um dia sem o agendador (Redis fora, JOBS_ENABLED desligado)
  * não perde ocorrência; o agendador deixa o dia pronto antes de alguém abrir a tela.
+ * Só gera dos departamentos com o portão aberto (PLU-336), como a API de
+ * Tarefas: com o Financeiro fechado, nem as tarefas financeiras já cadastradas
+ * ganham ocorrência.
  */
 @Injectable()
 export class GerarOcorrenciasDoDiaHandler implements JobHandler {
@@ -27,13 +32,15 @@ export class GerarOcorrenciasDoDiaHandler implements JobHandler {
 
   constructor(
     @Inject(PrismaJobsService) private readonly prisma: PrismaJobsService,
+    @Inject(ConfigService) private readonly config: ConfigService,
     @Inject(RELOGIO_DO_AGENDADOR) private readonly agora: Relogio,
   ) {}
 
   async process(): Promise<JobResult> {
     const hoje = diaEmManaus(this.agora());
     const ate = semanaDe(hoje).fim;
-    const criadas = await this.prisma.$transaction((tx) => gerarOcorrencias(tx, ate));
+    const departamentos = departamentosLigados((portao) => this.config.get<boolean>(portao));
+    const criadas = await this.prisma.$transaction((tx) => gerarOcorrencias(tx, ate, { departamentos }));
     return { logRef: `os://tarefas/ocorrencias hoje=${hoje} ate=${ate} criadas=${criadas}` };
   }
 }
