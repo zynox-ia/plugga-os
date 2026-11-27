@@ -276,3 +276,33 @@ describe("próximos vencimentos do projeto (PLU-362)", () => {
     assert.deepEqual([prazoDoVencimento(0), prazoDoVencimento(-1).prazo], [{ prazo: "vence hoje", tom: "alerta" }, "vencida há 1 dia"]);
   });
 });
+
+describe("os exemplos do Centro de custo não existem no build de produção, nem no servidor (PLU-362)", () => {
+  const WEB = path.resolve(import.meta.dirname, "..");
+  // Fins de linha normalizados: num checkout com CRLF, "\n  }\n  notFound();" não casaria.
+  const ler = (relativo: string) => readFileSync(path.join(WEB, relativo), "utf8").replace(/\r\n/g, "\n");
+  const RAMO = 'if (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test") {';
+
+  for (const [pagina, especificador] of [
+    ["app/financeiro/centro-de-custo/page.tsx", 'import("../../lib/prototipo-centro-de-custo-exemplos")'],
+    ["app/financeiro/centro-de-custo/[projeto]/page.tsx", 'import("../../../lib/prototipo-centro-de-custo-exemplos")'],
+  ] as const) {
+    it(`${pagina}: os exemplos só por import() dentro do ramo do NODE_ENV escrito por extenso`, () => {
+      const codigo = ler(pagina);
+      assert.doesNotMatch(codigo, /^import[^\n]*prototipo-centro-de-custo-exemplos/m, "sem import estático dos exemplos");
+      const inicio = codigo.indexOf(RAMO);
+      assert.ok(inicio >= 0, "a condição vai literal, para o webpack avaliá-la no build e descartar o ramo em produção");
+      const importDinamico = codigo.indexOf(especificador);
+      const fimDoRamo = codigo.indexOf("\n  }\n  notFound();", inicio);
+      assert.ok(fimDoRamo > inicio, "fora do ramo, 404");
+      assert.ok(importDinamico > inicio && importDinamico < fimDoRamo, "o import() fica dentro do ramo");
+      assert.equal(codigo.split("prototipo-centro-de-custo-exemplos").length - 1, 1, "um único caminho até os exemplos");
+    });
+  }
+
+  it("a condição literal é a mesma da trava do protótipo", () => {
+    for (const NODE_ENV of ["development", "test", "production", "", "staging", undefined]) {
+      assert.equal(prototipoDoCentroDeCustoHabilitado({ NODE_ENV }), NODE_ENV === "development" || NODE_ENV === "test", String(NODE_ENV));
+    }
+  });
+});
