@@ -99,6 +99,15 @@
   margin-left: 2px;
 }
 
+/* Ficha que não abriu por falha da consulta: o aviso e o "Tentar de novo" lado a lado, ou empilhados no celular. */
+.falhaDaFicha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .vazioQuadro {
   position: absolute;
   inset: 64px 0 0;

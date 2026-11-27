@@ -4,7 +4,9 @@ import { fetchOpcoesDeCompra, fetchPedidoDeCompra, fetchPedidosDeCompra, fetchQu
 import { redirect } from "next/navigation";
 
 import { consultaDaApi, hojeEmManaus, hrefDeCompras, lerFiltrosDeCompras, temFiltroSoDaLista } from "../../lib/compras";
+import { ehUuid } from "../../lib/estoque";
 import { exigirPagina } from "../../lib/exigir-pagina";
+import { falhaDaFicha } from "../../lib/ficha-do-pedido";
 import { podeCriarPedido } from "../../lib/papel-em-compras";
 
 export default async function ComprasPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
@@ -23,7 +25,7 @@ export default async function ComprasPage({ searchParams }: { searchParams: Prom
         ? fetchPedidosDeCompra({ ...consulta, situacao: "cancelado" })
         : Promise.resolve(null),
     fetchOpcoesDeCompra(),
-    parametros.pedido ? fetchPedidoDeCompra(parametros.pedido) : Promise.resolve(null),
+    ehUuid(parametros.pedido) ? fetchPedidoDeCompra(parametros.pedido) : Promise.resolve(null),
   ]);
   if (quadro && !quadro.ok) return <EstadoDaApi erro={quadro.erro} eyebrow="Compras" />;
   if (lista && !lista.ok) return <EstadoDaApi erro={lista.erro} eyebrow="Compras" />;
@@ -37,7 +39,7 @@ export default async function ComprasPage({ searchParams }: { searchParams: Prom
       total={lista?.ok ? lista.dados.total : 0}
       opcoes={opcoes.dados}
       ficha={ficha?.ok ? ficha.dados : null}
-      fichaNaoEncontrada={ficha !== null && !ficha.ok}
+      falhaDaFicha={falhaDaFicha(parametros.pedido, ficha)}
       podeCriar={podeCriarPedido(sessao.acesso)}
     />
   );

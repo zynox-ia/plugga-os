@@ -1,12 +1,13 @@
 "use client";
 
 import type { OpcoesDeCompraResposta, PedidoDeCompra, PedidoDeCompraResumo, QuadroDeComprasResposta } from "@plugga/shared";
-import { Ban, Building2, CalendarDays, List, ShoppingCart, SquareKanban, UserRound } from "lucide-react";
+import { Ban, Building2, CalendarDays, List, RotateCw, ShoppingCart, SquareKanban, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactElement } from "react";
 
-import { hrefDeCompras, numeroDoPedido, ROTULO_DA_EMPRESA, periodosDeCompra, ROTULO_DO_PERIODO, textoDoDestino, type FiltrosDeCompras } from "../../lib/compras";
+import { hrefDeCompras, numeroDoPedido, ROTULO_DA_EMPRESA, periodosDeCompra, ROTULO_DO_PERIODO, textoDoDestino, textosDaBusca, type FiltrosDeCompras } from "../../lib/compras";
+import type { FalhaDaFicha } from "../../lib/ficha-do-pedido";
 import { BarraFixa, CampoDaFolha, classeDaPaginaComBarra, classeDosControlesDaBarra } from "../barra-fixa";
 import estilosClientes from "../clientes/tela-clientes.module.css";
 import { BarraRolagemMinimalista } from "../pipelines/quadro-do-pipeline";
@@ -34,7 +35,7 @@ function casaComBusca(p: PedidoDeCompraResumo, busca: string): boolean {
  * empresa como filtro, e a lista de todos os pedidos. Filtros e ficha vão no
  * endereço; a etapa só avança pela ação da ficha.
  */
-export function ComprasView({ filtros, colunas, pedidos, total, opcoes, ficha, fichaNaoEncontrada, podeCriar }: {
+export function ComprasView({ filtros, colunas, pedidos, total, opcoes, ficha, falhaDaFicha, podeCriar }: {
   filtros: FiltrosDeCompras;
   /** Só quem opera Compras cria pedido; o Financeiro abre a tela para aprovar e pagar. */
   podeCriar: boolean;
@@ -43,7 +44,7 @@ export function ComprasView({ filtros, colunas, pedidos, total, opcoes, ficha, f
   total: number;
   opcoes: OpcoesDeCompraResposta;
   ficha: PedidoDeCompra | null;
-  fichaNaoEncontrada: boolean;
+  falhaDaFicha: FalhaDaFicha | null;
 }) {
   const router = useRouter();
   const [busca, setBusca] = useState(filtros.busca ?? "");
@@ -74,9 +75,10 @@ export function ComprasView({ filtros, colunas, pedidos, total, opcoes, ficha, f
   const canceladosVisiveis = filtros.cancelados ? pedidos.filter((p) => casaComBusca(p, termo)) : null;
   const semPedidos = quadro && !filtrado && colunas.every((c) => c.quantidade === 0);
 
+  const textoDaBusca = textosDaBusca(filtros.visao);
   const campoDeBusca = (sufixo: string) => <form className="equipe-busca" onSubmit={buscar} role="search" aria-label="Buscar pedidos">
     <button type="submit" className={estilosClientes.botaoBusca} aria-label="Buscar pedidos"><IconSearch className="equipe-busca-icon" /></button>
-    <input id={`compras-busca-${sufixo}`} className="equipe-busca-input" type="search" maxLength={150} aria-label="Buscar pedido por número, título ou destino" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar pedido, item ou destino…" />
+    <input id={`compras-busca-${sufixo}`} className="equipe-busca-input" type="search" maxLength={150} aria-label={textoDaBusca.rotulo} value={busca} onChange={(e) => setBusca(e.target.value)} placeholder={textoDaBusca.dica} />
   </form>;
   const filtroDeEmpresa = <FiltroComBusca key="empresa" label="Empresa" icon={<Building2 />} semFiltro="todas" value={filtros.empresa ?? "todas"} onChange={(v) => ir({ empresa: v === "todas" ? undefined : (v as FiltrosDeCompras["empresa"]) })}
     options={[{ value: "todas", label: "Todas as empresas", icon: <Building2 /> }, ...(["plugga", "waze"] as const).map((e) => ({ value: e, label: ROTULO_DA_EMPRESA[e], icon: <PontoDaEmpresa empresa={e} /> }))]} />;
@@ -133,7 +135,11 @@ export function ComprasView({ filtros, colunas, pedidos, total, opcoes, ficha, f
           folha: <>{campoDeBusca("folha")}{filtrosDaLista.map(([rotulo, filtro]) => <CampoDaFolha key={rotulo} rotulo={rotulo}>{filtro}</CampoDaFolha>)}</>,
         }} />}
 
-      {fichaNaoEncontrada ? <p className="aviso aviso--alerta" role="status">Pedido não encontrado. O link pode estar errado.</p> : null}
+      {falhaDaFicha?.tipo === "nao_encontrada" ? <p className="aviso aviso--alerta" role="status">{falhaDaFicha.texto}</p> : null}
+      {falhaDaFicha?.tipo === "consulta" ? <div className={`aviso aviso--erro ${styles.falhaDaFicha}`} role="alert">
+        <span>{falhaDaFicha.texto}</span>
+        <Button variant="secondary" size="sm" icon={<RotateCw size={14} />} onClick={() => router.refresh()}>Tentar de novo</Button>
+      </div> : null}
 
       {quadro ? (
         <div className="quadro-pipeline" style={{ "--cor": "#7C5CFF" } as CSSProperties}>
