@@ -1,14 +1,15 @@
 "use client";
 
-import { ArrowDownLeft, ArrowUpRight, Building2, Eye, Filter, FolderKanban, Layers, List, Scale, User, Users, type LucideIcon } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Building2, Eye, Filter, FolderKanban, LayoutGrid, Layers, List, Plus, Scale, User, Users, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent, type ReactElement } from "react";
 
 import { ROTULO_DA_EMPRESA } from "../../lib/compras";
 import {
+  comEntradasNovas,
+  dataCurta,
   filtrarProjetos,
-  hrefDoProjeto,
   hrefDosProjetos,
   projetosPorCliente,
   reais,
@@ -33,20 +34,44 @@ import { FiltroComBusca } from "../suprimentos/menu-com-busca";
 import { Badge, Button, IconSearch } from "../ui";
 import { iconeDoProjeto, Orcamento, SeloDoPrototipo, TOM_DA_SITUACAO } from "./centro-de-custo-partes";
 import styles from "./centro-de-custo.module.css";
+import { FichaDoProjeto } from "./ficha-do-projeto";
+import estilosCards from "./lancamentos.module.css";
+import { entradasNovasDe, NovaEntradaDoProjeto, useEntradasNovas } from "./nova-entrada-do-projeto";
+import type { TelasDeOrigem } from "./projeto-do-centro-de-custo";
 
 const VISOES: Record<VisaoDosProjetos, { rotulo: string; icone: LucideIcon }> = {
-  projetos: { rotulo: "Projetos", icone: List },
+  cards: { rotulo: "Cards", icone: LayoutGrid },
+  lista: { rotulo: "Lista", icone: List },
   clientes: { rotulo: "Por cliente", icone: Users },
 };
-const ORDEM_DAS_VISOES: VisaoDosProjetos[] = ["projetos", "clientes"];
+const ORDEM_DAS_VISOES: VisaoDosProjetos[] = ["cards", "lista", "clientes"];
+
+type AcoesDoProjeto = { hrefDaFicha: (id: string) => string; aoAbrir: (id: string) => void };
 
 /**
  * Centro de custo (PLU-362), PROTÓTIPO: a lista dos projetos com o que cada um
  * recebeu, gastou e deu de resultado. Só leitura; os números vêm dos dados de
- * exemplo (`lib/prototipo-centro-de-custo.ts`). Filtros e visão vão no endereço.
+ * exemplo, que o servidor manda por props. Visões Cards (padrão), Lista e Por
+ * cliente; filtros, visão e a ficha aberta (`?projeto=`) vão no endereço.
  */
-export function CentroDeCustoView({ filtros, projetos, clientes }: { filtros: FiltrosDosProjetos; projetos: readonly Projeto[]; clientes: readonly Projeto["cliente"][] }) {
+export function CentroDeCustoView({ filtros, projetos: doServidor, clientes, projetoAberto, abre }: {
+  filtros: FiltrosDosProjetos;
+  projetos: readonly Projeto[];
+  clientes: readonly Projeto["cliente"][];
+  /** O id do projeto com a ficha aberta em modal, ou nulo. */
+  projetoAberto: string | null;
+  abre: TelasDeOrigem;
+}) {
   const router = useRouter();
+  // As entradas criadas nesta sessão (em memória) entram nos números de cada projeto.
+  const novas = useEntradasNovas();
+  const projetos = doServidor.map((p) => comEntradasNovas(p, entradasNovasDe(novas, p.id)));
+  const [criandoPara, setCriandoPara] = useState<Projeto | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
+  useEffect(() => { if (!aviso) return; const t = setTimeout(() => setAviso(null), 8000); return () => clearTimeout(t); }, [aviso]);
+  const hrefDaFicha = (id: string) => hrefDosProjetos(filtros, id);
+  const abrir = (id: string) => router.push(hrefDaFicha(id), { scroll: false });
+  const aberto = projetoAberto ? projetos.find((p) => p.id === projetoAberto) ?? null : null;
   const [busca, setBusca] = useState(filtros.busca ?? "");
   useEffect(() => setBusca(filtros.busca ?? ""), [filtros.busca]);
   const abasRef = useRef<HTMLDivElement>(null);
@@ -102,9 +127,11 @@ export function CentroDeCustoView({ filtros, projetos, clientes }: { filtros: Fi
       {filtrado ? <Button variant="secondary" size="sm" onClick={limpar}>Limpar filtros</Button> : null}
     </div>;
   } else if (filtros.visao === "clientes") {
-    conteudo = <PorCliente projetos={visiveis} />;
+    conteudo = <PorCliente projetos={visiveis} hrefDaFicha={hrefDaFicha} aoAbrir={abrir} />;
+  } else if (filtros.visao === "lista") {
+    conteudo = <ListaDosProjetos projetos={visiveis} hrefDaFicha={hrefDaFicha} aoAbrir={abrir} />;
   } else {
-    conteudo = <ListaDosProjetos projetos={visiveis} aoAbrir={(id) => router.push(hrefDoProjeto(id))} />;
+    conteudo = <CardsDosProjetos projetos={visiveis} hrefDaFicha={hrefDaFicha} aoAbrir={abrir} aoCriarEntrada={setCriandoPara} />;
   }
 
   return <div className={`${estilosClientes.pagina} ${styles.pagina} ${classeDaPaginaComBarra}`}>
@@ -145,8 +172,56 @@ export function CentroDeCustoView({ filtros, projetos, clientes }: { filtros: Fi
         ...(filtrado ? { aoLimpar: limpar } : {}),
       }} />
 
+    {aviso ? <p className="aviso aviso--sucesso" role="status">{aviso}</p> : null}
+
     <section id="centro-conteudo" className={`${estilosClientes.conteudo} ${styles.conteudo}`} role="tabpanel" aria-labelledby={`centro-visao-${filtros.visao}`}>{conteudo}</section>
+
+    {aberto ? <FichaDoProjeto key={aberto.id} projeto={aberto} outros={projetos.filter((p) => p.cliente.id === aberto.cliente.id && p.id !== aberto.id)} abre={abre}
+      hrefDe={hrefDaFicha} aoFechar={() => router.push(hrefDosProjetos(filtros), { scroll: false })} /> : null}
+    {criandoPara ? <NovaEntradaDoProjeto projeto={criandoPara} aoFechar={() => setCriandoPara(null)}
+      aoCriar={() => { setAviso(`Entrada criada em Lançamentos, vinculada a ${criandoPara.nome}. Protótipo: some ao recarregar a página.`); setCriandoPara(null); }} /> : null}
   </div>;
+}
+
+/**
+ * A visão padrão: o card de projeto no padrão dos Cards de Lançamentos (mesma
+ * grade e proporções). O que importa para decidir abrir: projeto, cliente, tipo
+ * e empresa; o resultado em destaque, com recebido e gasto; o orçamento
+ * consumido quando houver; a situação e as ações no rodapé.
+ */
+function CardsDosProjetos({ projetos, hrefDaFicha, aoAbrir, aoCriarEntrada }: { projetos: readonly Projeto[]; aoCriarEntrada: (p: Projeto) => void } & AcoesDoProjeto) {
+  return <div className={estilosCards.areaCards}><div className={estilosCards.grade}>
+    {projetos.map((p, indice) => {
+      const r = resumoDoProjeto(p);
+      const Icone = iconeDoProjeto(p);
+      return <article key={p.id} className={`${estilosClientes.card} ${estilosCards.card} ${estilosCards.entra}`} style={{ "--i": indice } as CSSProperties}
+        aria-label={`${p.nome}: ${p.cliente.nome}, resultado ${reais(r.resultado)}`}>
+        <div className={estilosCards.topo}>
+          <span className={estilosCards.caixa} aria-hidden="true" title={`${ROTULO_DA_CLASSE[p.classe]} · ${p.tipo}`}><Icone size={20} /></span>
+          <div className={estilosCards.canto}><span>{p.tipo}</span><span aria-hidden="true">·</span><EmpresaComPonto empresa={p.empresa} curto /></div>
+        </div>
+        <div className={estilosCards.quem}>
+          <h3><Link href={hrefDaFicha(p.id)} scroll={false} title={p.nome}>{p.nome}</Link></h3>
+          <p title={p.cliente.nome}>{p.cliente.nome}</p>
+        </div>
+        <div className={estilosCards.valor}><strong className={r.resultado < 0 ? styles.negativo : undefined}>{reais(r.resultado)}</strong><small><Scale size={12} aria-hidden="true" />resultado</small></div>
+        <dl className={styles.numerosDoCard}>
+          <div><dt>Recebido</dt><dd>{reais(r.recebido)}</dd>{r.aReceber ? <dd className={styles.notaDoNumero}>+ {reais(r.aReceber)} a receber</dd> : null}</div>
+          <div><dt>Gasto</dt><dd>{reais(r.gasto)}</dd>{r.aPagar ? <dd className={styles.notaDoNumero}>+ {reais(r.aPagar)} a pagar</dd> : null}</div>
+        </dl>
+        {r.orcamento ? <div className={styles.orcamentoDoCard}>
+          <span className={styles.orcamentoDoCardTopo}><span>Orçamento</span><strong className={r.orcamento.estourou ? styles.negativo : undefined}>{r.orcamento.percentual}%{r.orcamento.estourou ? " · acima" : ""}</strong></span>
+          <span className={`${styles.trilho} ${styles.trilhoInteiro} ${r.orcamento.estourou ? styles.trilhoEstourado : ""}`} role="progressbar" aria-label={`Orçamento consumido de ${p.nome}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, r.orcamento.percentual)} aria-valuetext={`${r.orcamento.percentual}% de ${reais(r.orcamento.valor)}`}><span style={{ inlineSize: `${Math.min(100, r.orcamento.percentual)}%` }} /></span>
+        </div> : <p className={styles.semOrcamentoDoCard}>Sem orçamento</p>}
+        <footer className={estilosCards.rodape}>
+          <span className={estilosCards.prazo}><span>{p.responsavel ?? "Sem responsável"}</span><small>{p.inicio ? `desde ${dataCurta(p.inicio)}` : "sem início"}</small></span>
+          <Badge tone={TOM_DA_SITUACAO[p.situacao]}>{ROTULO_DA_SITUACAO[p.situacao]}</Badge>
+          <Button variant="secondary" size="sm" iconOnly icon={<Plus size={14} />} aria-label={`Nova entrada em ${p.nome}`} title="Nova entrada" onClick={() => aoCriarEntrada(p)} />
+          <Button variant="secondary" size="sm" iconOnly icon={<Eye size={14} />} aria-label={`Abrir o centro de custo de ${p.nome}`} title="Abrir o centro de custo" onClick={() => aoAbrir(p.id)} />
+        </footer>
+      </article>;
+    })}
+  </div></div>;
 }
 
 function Valor({ centavos, nota, sinal = false }: { centavos: number; nota?: string | null; sinal?: boolean }) {
@@ -156,7 +231,7 @@ function Valor({ centavos, nota, sinal = false }: { centavos: number; nota?: str
   </div>;
 }
 
-function ListaDosProjetos({ projetos, aoAbrir }: { projetos: readonly Projeto[]; aoAbrir: (id: string) => void }) {
+function ListaDosProjetos({ projetos, hrefDaFicha, aoAbrir }: { projetos: readonly Projeto[] } & AcoesDoProjeto) {
   return <div className={`lista-negocios ${estilosLista.lista} ${styles.lista}`}>
     <ShellCard className="table-card lista-negocios-card">
       <div className="card-heading"><div className={estilosLista.cabecalhoTabela}>
@@ -173,7 +248,7 @@ function ListaDosProjetos({ projetos, aoAbrir }: { projetos: readonly Projeto[];
               <td data-l="Projeto"><div className={estilosLista.oportunidade}>
                 <span className={estilosLista.iconeOportunidade} aria-hidden="true"><Icone size={16} /></span>
                 <div className="celula-lead-bloco">
-                  <Link href={hrefDoProjeto(p.id)} className={`lead-nome ${estilosLista.titulo} ${styles.nomeDoProjeto}`} title={p.nome}>{p.nome}</Link>
+                  <Link href={hrefDaFicha(p.id)} scroll={false} className={`lead-nome ${estilosLista.titulo} ${styles.nomeDoProjeto}`} title={p.nome}>{p.nome}</Link>
                   <span className={styles.subLinha}><span title={`${p.cliente.nome} · ${ROTULO_DA_CLASSE[p.classe]} · ${p.tipo}`}>{p.cliente.nome} · {p.tipo}</span><EmpresaComPonto empresa={p.empresa} curto /></span>
                 </div>
               </div></td>
@@ -182,7 +257,7 @@ function ListaDosProjetos({ projetos, aoAbrir }: { projetos: readonly Projeto[];
               <td data-l="Gasto"><Valor centavos={r.gasto} nota={r.aPagar ? `+ ${reais(r.aPagar)} a pagar` : null} /></td>
               <td data-l="Resultado"><Valor centavos={r.resultado} sinal nota={r.aReceber || r.aPagar ? `previsto ${reais(r.resultadoPrevisto)}` : null} /></td>
               <td data-l="Orçamento"><div className={estilosLista.valor}><Orcamento projeto={p} /></div></td>
-              <td><div className={estilosLista.acoesLinha}><Link href={hrefDoProjeto(p.id)} className="button button--secondary ui-button ui-button--sm ui-button--icon-only" aria-label={`Abrir o centro de custo de ${p.nome}`} title="Abrir o centro de custo"><span className="ui-button-icon" aria-hidden="true"><Eye size={14} /></span></Link></div></td>
+              <td><div className={estilosLista.acoesLinha}><Button variant="secondary" size="sm" iconOnly icon={<Eye size={14} />} aria-label={`Abrir o centro de custo de ${p.nome}`} title="Abrir o centro de custo" onClick={() => aoAbrir(p.id)} /></div></td>
             </tr>;
           })}</tbody>
         </ShellTable>
@@ -195,7 +270,7 @@ function ListaDosProjetos({ projetos, aoAbrir }: { projetos: readonly Projeto[];
 }
 
 /** Um cliente com vários projetos: o grupo mostra a soma e cada projeto com o seu resultado. */
-function PorCliente({ projetos }: { projetos: readonly Projeto[] }) {
+function PorCliente({ projetos, hrefDaFicha }: { projetos: readonly Projeto[] } & AcoesDoProjeto) {
   return <div className={styles.clientes}>{projetosPorCliente(projetos).map((g, indice) => <section key={g.cliente.id} className={`${styles.cliente} ${styles.entra}`} style={{ "--i": indice } as CSSProperties} aria-labelledby={`cliente-${g.cliente.id}`}>
     <header className={styles.clienteTopo}>
       <div>
@@ -211,7 +286,7 @@ function PorCliente({ projetos }: { projetos: readonly Projeto[] }) {
     <ul className={styles.linhas}>{g.projetos.map((p) => {
       const r = resumoDoProjeto(p);
       const Icone = iconeDoProjeto(p);
-      return <li key={p.id}><Link href={hrefDoProjeto(p.id)} className={styles.linha}>
+      return <li key={p.id}><Link href={hrefDaFicha(p.id)} scroll={false} className={styles.linha}>
         <span className={styles.marca} aria-hidden="true"><Icone size={15} /></span>
         <span className={styles.texto}>
           <strong>{p.nome}</strong>

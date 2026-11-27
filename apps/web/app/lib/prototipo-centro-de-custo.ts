@@ -29,6 +29,9 @@ export type Entrada = {
   recebidaEm: string | null;
   situacao: "recebida" | "a_receber" | "cancelada";
   valor: number;
+  /** Criada no protótipo, nesta aba do navegador (some ao recarregar). */
+  nova?: true;
+  observacao?: string;
 };
 
 export type Saida = {
@@ -184,7 +187,8 @@ export const projetoVazio = (p: Projeto): boolean => !p.entradas.length && !p.sa
 
 // ---------------------------------------------------------------- filtros e endereços
 
-export type VisaoDosProjetos = "projetos" | "clientes";
+/** Cards é a visão padrão (pedido do André em 27/11/2026); Lista é a tabela; Por cliente agrupa. */
+export type VisaoDosProjetos = "cards" | "lista" | "clientes";
 export type FiltrosDosProjetos = { visao: VisaoDosProjetos; empresa?: CompanyKey; cliente?: string; situacao?: SituacaoDoProjeto; busca?: string };
 
 export const ROTA_DO_CENTRO_DE_CUSTO = "/financeiro/centro-de-custo";
@@ -196,7 +200,7 @@ export function lerFiltrosDosProjetos(parametros: Record<string, string | undefi
   const cliente = parametros.cliente && clientes.includes(parametros.cliente) ? parametros.cliente : undefined;
   const busca = parametros.busca?.trim().slice(0, 120) || undefined;
   return {
-    visao: parametros.visao === "clientes" ? "clientes" : "projetos",
+    visao: parametros.visao === "clientes" || parametros.visao === "lista" ? parametros.visao : "cards",
     ...(empresa ? { empresa } : {}),
     ...(cliente ? { cliente } : {}),
     ...(situacao ? { situacao } : {}),
@@ -204,13 +208,15 @@ export function lerFiltrosDosProjetos(parametros: Record<string, string | undefi
   };
 }
 
-export function hrefDosProjetos(filtros: FiltrosDosProjetos): string {
+/** O endereço da lista; com `projeto`, a ficha dele aberta em modal por cima (endereço compartilhável). */
+export function hrefDosProjetos(filtros: FiltrosDosProjetos, projeto?: string | null): string {
   const q = new URLSearchParams();
-  if (filtros.visao !== "projetos") q.set("visao", filtros.visao);
+  if (filtros.visao !== "cards") q.set("visao", filtros.visao);
   if (filtros.empresa) q.set("empresa", filtros.empresa);
   if (filtros.cliente) q.set("cliente", filtros.cliente);
   if (filtros.situacao) q.set("situacao", filtros.situacao);
   if (filtros.busca) q.set("busca", filtros.busca);
+  if (projeto) q.set("projeto", projeto);
   const s = q.toString();
   return s ? `${ROTA_DO_CENTRO_DE_CUSTO}?${s}` : ROTA_DO_CENTRO_DE_CUSTO;
 }
@@ -273,3 +279,48 @@ export function reais(centavos: number): string {
 
 /** "2026-11-18" → "18/11/2026". */
 export const dataCurta = (iso: string): string => iso.split("-").reverse().join("/");
+
+// ---------------------------------------------------------------- nova entrada (protótipo, em memória)
+
+export type CamposDaNovaEntrada = { descricao: string; competencia: string; valor: string; vencimento: string; observacao: string };
+
+/** "1.234,56" → 123456 centavos; vazio, inválido ou não positivo → null. */
+export function centavosDoTexto(texto: string): number | null {
+  const limpo = texto.trim().replace(/\./g, "").replace(",", ".");
+  if (!/^\d+(\.\d{1,2})?$/.test(limpo)) return null;
+  const centavos = Math.round(Number(limpo) * 100);
+  return centavos > 0 ? centavos : null;
+}
+
+/** Os problemas por campo, no tom dos formulários do Financeiro; vazio, a entrada pode ser criada. */
+export function problemasDaNovaEntrada(c: CamposDaNovaEntrada, hoje: string): Record<string, string> {
+  const problemas: Record<string, string> = {};
+  if (!c.descricao.trim()) problemas.descricao = "informe a descrição.";
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(c.competencia)) problemas.competencia = "escolha a competência.";
+  if (centavosDoTexto(c.valor) === null) problemas.valor = "informe um valor maior que zero.";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(c.vencimento)) problemas.vencimento = "escolha o vencimento.";
+  else if (c.vencimento < hoje) problemas.vencimento = "o vencimento não pode ser antes de hoje.";
+  return problemas;
+}
+
+/**
+ * A entrada criada a partir do centro de custo: no sistema real, uma cobrança em
+ * Lançamentos, já com o cliente e o projeto; aqui, só em memória. Nasce a
+ * receber; o código definitivo (CR-…) é o que Lançamentos der.
+ */
+export function entradaNova(c: CamposDaNovaEntrada, sequencia: number): Entrada {
+  return {
+    id: `nova-${sequencia}`,
+    codigo: `CR-nova-${sequencia}`,
+    descricao: c.descricao.trim(),
+    vencimento: c.vencimento,
+    recebidaEm: null,
+    situacao: "a_receber",
+    valor: centavosDoTexto(c.valor)!,
+    nova: true,
+    ...(c.observacao.trim() ? { observacao: c.observacao.trim() } : {}),
+  };
+}
+
+/** O projeto com as entradas criadas nesta sessão primeiro: os totais passam a contá-las. */
+export const comEntradasNovas = (p: Projeto, novas: readonly Entrada[]): Projeto => (novas.length ? { ...p, entradas: [...novas, ...p.entradas] } : p);

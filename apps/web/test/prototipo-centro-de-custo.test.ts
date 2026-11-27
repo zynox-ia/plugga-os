@@ -7,7 +7,11 @@ import type { Acesso, Tela } from "@plugga/shared";
 
 import { fechadaPeloPortaoDoFinanceiro, podeAbrirPagina } from "../app/lib/acesso-paginas.ts";
 import {
+  centavosDoTexto,
+  comEntradasNovas,
+  entradaNova,
   filtrarProjetos,
+  problemasDaNovaEntrada,
   hrefDosProjetos,
   lerFiltrosDosProjetos,
   projetosPorCliente,
@@ -129,19 +133,22 @@ describe("números do centro de custo de exemplo (PLU-362)", () => {
 
   it("filtros: empresa, cliente, situação e busca sem acento, inclusive pelo código de origem", () => {
     const ids = (f: Parameters<typeof filtrarProjetos>[1]) => filtrarProjetos(PROJETOS_DE_EXEMPLO, f).map((p) => p.id);
-    assert.ok(ids({ visao: "projetos", empresa: "waze" }).every((id) => projeto(id).empresa === "waze"));
-    assert.deepEqual(ids({ visao: "projetos", cliente: "cli-joao", situacao: "nao_iniciado" }), ["carport-solar-joao"]);
-    assert.deepEqual(ids({ visao: "projetos", busca: "condominio" }), ["usina-solar-condominio"]);
-    assert.deepEqual(ids({ visao: "projetos", busca: "pc-0061" }), ["eletroposto-ponto-certo"]);
-    assert.deepEqual(ids({ visao: "projetos", busca: "nada assim" }), []);
+    assert.ok(ids({ visao: "cards", empresa: "waze" }).every((id) => projeto(id).empresa === "waze"));
+    assert.deepEqual(ids({ visao: "cards", cliente: "cli-joao", situacao: "nao_iniciado" }), ["carport-solar-joao"]);
+    assert.deepEqual(ids({ visao: "cards", busca: "condominio" }), ["usina-solar-condominio"]);
+    assert.deepEqual(ids({ visao: "cards", busca: "pc-0061" }), ["eletroposto-ponto-certo"]);
+    assert.deepEqual(ids({ visao: "cards", busca: "nada assim" }), []);
   });
 
   it("o endereço guarda os filtros e descarta o que não é válido", () => {
     const filtros = lerFiltrosDosProjetos({ visao: "clientes", empresa: "waze", cliente: "cli-joao", situacao: "em_andamento", busca: "  usina " }, clientesDeExemplo().map((c) => c.id));
     assert.deepEqual(filtros, { visao: "clientes", empresa: "waze", cliente: "cli-joao", situacao: "em_andamento", busca: "usina" });
     assert.equal(hrefDosProjetos(filtros), "/financeiro/centro-de-custo?visao=clientes&empresa=waze&cliente=cli-joao&situacao=em_andamento&busca=usina");
-    assert.deepEqual(lerFiltrosDosProjetos({ visao: "quadro", empresa: "outra", cliente: "x", situacao: "toString" }, ["cli-joao"]), { visao: "projetos" });
-    assert.equal(hrefDosProjetos({ visao: "projetos" }), "/financeiro/centro-de-custo");
+    assert.deepEqual(lerFiltrosDosProjetos({ visao: "quadro", empresa: "outra", cliente: "x", situacao: "toString" }, ["cli-joao"]), { visao: "cards" });
+    assert.equal(lerFiltrosDosProjetos({ visao: "lista" }, []).visao, "lista");
+    // A ficha em modal vai no endereço, com os filtros da lista por baixo.
+    assert.equal(hrefDosProjetos({ visao: "cards", empresa: "plugga" }, "carport-solar-joao"), "/financeiro/centro-de-custo?empresa=plugga&projeto=carport-solar-joao");
+    assert.equal(hrefDosProjetos({ visao: "cards" }), "/financeiro/centro-de-custo");
   });
 
   it("valores em reais, com o sinal de menos no negativo", () => {
@@ -196,5 +203,39 @@ describe("os exemplos do Centro de custo não vão ao navegador (PLU-362)", () =
   it("o detector pega um import indireto (prova do teste)", () => {
     // A página do servidor chega aos exemplos: se o detector não visse isso, o teste acima passaria à toa.
     assert.deepEqual(caminhoAteOsExemplos(path.join(raiz, "financeiro", "centro-de-custo", "page.tsx")), [path.join("financeiro", "centro-de-custo", "page.tsx"), path.join("lib", "prototipo-centro-de-custo-exemplos.ts")]);
+  });
+});
+
+describe("nova entrada a partir do centro de custo (PLU-362)", () => {
+  const campos = { descricao: "4ª parcela · comissionamento", competencia: "2026-11", valor: "1.234,56", vencimento: "2026-12-20", observacao: "" };
+
+  it("o valor digitado vira centavos; vazio, zero ou inválido não serve", () => {
+    assert.equal(centavosDoTexto("1.234,56"), 123_456);
+    assert.equal(centavosDoTexto("890"), 89_000);
+    assert.equal(centavosDoTexto("0,5"), 50);
+    for (const ruim of ["", "0", "0,00", "abc", "1,234", "-5"]) assert.equal(centavosDoTexto(ruim), null, ruim);
+  });
+
+  it("pede descrição, competência, valor e vencimento, sem vencimento no passado", () => {
+    assert.deepEqual(problemasDaNovaEntrada(campos, "2026-11-27"), {});
+    const vazia = problemasDaNovaEntrada({ descricao: " ", competencia: "", valor: "", vencimento: "", observacao: "" }, "2026-11-27");
+    assert.deepEqual(Object.keys(vazia).sort(), ["competencia", "descricao", "valor", "vencimento"]);
+    assert.equal(problemasDaNovaEntrada({ ...campos, vencimento: "2026-11-26" }, "2026-11-27").vencimento, "o vencimento não pode ser antes de hoje.");
+  });
+
+  it("a entrada nasce a receber, marcada como nova, e entra nos números do projeto", () => {
+    const nova = entradaNova(campos, 1);
+    assert.equal(nova.situacao, "a_receber");
+    assert.equal(nova.valor, 123_456);
+    assert.equal(nova.nova, true);
+    const p = projeto("usina-solar-residencial-joao");
+    const antes = resumoDoProjeto(p);
+    const depois = resumoDoProjeto(comEntradasNovas(p, [nova]));
+    assert.equal(depois.aReceber, antes.aReceber + 123_456);
+    assert.equal(depois.recebido, antes.recebido, "a receber não muda o recebido");
+    assert.equal(depois.resultadoPrevisto, antes.resultadoPrevisto + 123_456);
+    assert.equal(comEntradasNovas(p, []), p, "sem novas, o mesmo projeto");
+    // O projeto vazio deixa de ser vazio com a primeira entrada.
+    assert.equal(projetoVazio(comEntradasNovas(projeto("carport-solar-joao"), [nova])), false);
   });
 });

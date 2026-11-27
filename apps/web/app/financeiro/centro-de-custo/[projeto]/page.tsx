@@ -1,13 +1,17 @@
 import { notFound } from "next/navigation";
 
-import { ProjetoDoCentroDeCusto } from "../../../components/financeiro/projeto-do-centro-de-custo";
+import { PaginaDoProjeto } from "../../../components/financeiro/pagina-do-projeto";
 import { podeAbrirPagina } from "../../../lib/acesso-paginas";
 import { exigirPagina } from "../../../lib/exigir-pagina";
 import { hrefDoProjeto } from "../../../lib/prototipo-centro-de-custo";
 import { PROJETOS_DE_EXEMPLO, projetoDeExemplo } from "../../../lib/prototipo-centro-de-custo-exemplos";
 import { prototipoDoCentroDeCustoHabilitado } from "../../../lib/recursos";
 
-/** O centro de custo de um projeto (PLU-362), PROTÓTIPO com dados de exemplo; só em desenvolvimento. */
+/**
+ * O centro de custo de um projeto em página inteira (PLU-362), PROTÓTIPO com dados
+ * de exemplo; só em desenvolvimento. A primeira forma, mantida para o André comparar
+ * com a ficha em modal (`/financeiro/centro-de-custo?projeto=<id>`).
+ */
 export default async function ProjetoDoCentroDeCustoPage({ params }: { params: Promise<{ projeto: string }> }) {
   if (!prototipoDoCentroDeCustoHabilitado()) notFound();
   const { projeto: id } = await params;
@@ -23,5 +27,5 @@ export default async function ProjetoDoCentroDeCustoPage({ params }: { params: P
     clientes: podeAbrirPagina(sessao.acesso, "/clientes"),
     projetos: podeAbrirPagina(sessao.acesso, "/engenharia/obras"),
   };
-  return <ProjetoDoCentroDeCusto projeto={projeto} outros={outros} abre={abre} />;
+  return <PaginaDoProjeto projeto={projeto} outros={outros} abre={abre} />;
 }
