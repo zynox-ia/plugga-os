@@ -16,6 +16,7 @@ import { AuditAppender } from "../src/audit/audit-appender.js";
 import { EstadoInvalido, RequisicaoInvalida } from "../src/common/errors/dominio.js";
 import { ComprasService } from "../src/compras/compras.service.js";
 import { PrismaComprasRepository } from "../src/compras/prisma-compras.repository.js";
+import { travarPedidoDeCompra } from "../src/compras/trava-do-pedido.js";
 import type { AuthPrincipal } from "../src/core/auth/auth.types.js";
 import { MovimentosDeEstoque } from "../src/estoque/movimentos-de-estoque.js";
 import { PrismaEstoqueRepository } from "../src/estoque/prisma-estoque.repository.js";
@@ -264,19 +265,62 @@ describe.skipIf(!HABILITADO)("estoque: operador só com a tela de Estoque, no lo
   let app: PrismaService;
   let estoque: PrismaEstoqueRepository;
   let compras: PrismaComprasRepository;
-  // Compras de verdade, que segura a transação aberta ao gravar o evento indicado:
-  // a ação já mudou o pedido e ainda não confirmou, a janela da corrida.
+  // Compras e Estoque de verdade, que seguram a transação aberta ao gravar o evento armado:
+  // a operação já mudou o banco e ainda não confirmou, a janela da corrida. Sem esperas fixas:
+  // o teste confere em pg_locks que a outra operação está parada numa trava e só então libera.
   let comprasLento: PrismaComprasRepository;
   let estoqueLento: PrismaEstoqueRepository;
   const lenta = new (class extends AuditAppender {
-    segurar: string | null = null;
+    private alvo: string | null = null;
+    private avisar: (() => void) | null = null;
+    private soltar: (() => void) | null = null;
+    /** A próxima gravação do evento segura a transação até `liberar()`; a promessa resolve quando ela chega lá. */
+    armar(evento: string): Promise<void> {
+      this.alvo = evento;
+      return new Promise((r) => { this.avisar = r; });
+    }
+    liberar(): void {
+      this.alvo = null;
+      this.soltar?.();
+      this.soltar = null;
+    }
     override async append(tx: Parameters<AuditAppender["append"]>[0], evento: Parameters<AuditAppender["append"]>[1]): Promise<void> {
       await super.append(tx, evento);
-      if (evento.eventName === this.segurar) await new Promise((r) => setTimeout(r, 700));
+      if (evento.eventName !== this.alvo) return;
+      this.alvo = null;
+      await new Promise<void>((r) => { this.soltar = r; this.avisar?.(); });
     }
   })();
   let ambienteValidado = false;
   const depois = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  /** Espera um backend do login da aplicação ficar parado numa trava (do tipo indicado, se houver). */
+  const esperandoTrava = async (tipo: "advisory" | null = null) => {
+    for (let i = 0; i < 400; i++) {
+      const [r] = await root.$queryRaw<{ n: number }[]>`
+        SELECT count(*)::int AS n FROM pg_locks l JOIN pg_stat_activity a ON a.pid = l.pid
+        WHERE NOT l.granted AND a.usename = ${login} AND (${tipo}::text IS NULL OR l.locktype = ${tipo}::text)`;
+      if (r!.n > 0) return;
+      await depois(25);
+    }
+    throw new Error(`nenhuma operação ficou esperando ${tipo ?? "uma"} trava`);
+  };
+  /** Arma o evento, dispara a operação que segura, espera chegar, dispara a concorrente e só libera quando ela está esperando. */
+  const corrida = async <A, B>(evento: string, segura: () => Promise<A>, concorrente: () => Promise<B>, tipo: "advisory" | null = null) => {
+    const chegou = lenta.armar(evento);
+    const primeira = segura();
+    const falhouAntes = primeira.then(() => { throw new Error("a operação terminou sem passar pelo evento armado"); }, (erro: unknown) => { throw erro; });
+    try {
+      await Promise.race([chegou, falhouAntes]);
+      const segunda = concorrente();
+      segunda.catch(() => undefined);
+      await esperandoTrava(tipo);
+      lenta.liberar();
+      return await Promise.allSettled([primeira, segunda]);
+    } finally {
+      lenta.liberar();
+      falhouAntes.catch(() => undefined);
+    }
+  };
 
   const principal = (nome: string): AuthPrincipal => ({ id: pessoas.get(nome)!.id, kind: "user", acesso: pessoas.get(nome)!.acesso });
   const como = <T>(nome: string, fazer: () => Promise<T>) => contextoBanco.run({ sessionHash: pessoas.get(nome)!.hash, agentHash: undefined }, fazer);
@@ -381,12 +425,9 @@ describe.skipIf(!HABILITADO)("estoque: operador só com a tela de Estoque, no lo
   it("corrida com o cancelamento: a entrada espera o pedido e não entra em pedido cancelado (revisão leva 3, S2)", async () => {
     const item = await criarItem();
     const pedido = await pedidoCom([{ quantidade: "10", itemDeEstoqueId: item }]);
-    lenta.segurar = "compras.pedido.cancelado";
-    const cancelar = como("compras", () => comprasLento.executarAcao(pedido, acaoDoPedidoSchema.parse({ acao: "cancelar", motivo: "Desistiu" }), principal("compras"), AGORA));
-    await depois(200);
-    const entrou = entrada(item, "5", pedido);
-    const [cancelou, entrada1] = await Promise.allSettled([cancelar, entrou]);
-    lenta.segurar = null;
+    const [cancelou, entrada1] = await corrida("compras.pedido.cancelado",
+      () => como("compras", () => comprasLento.executarAcao(pedido, acaoDoPedidoSchema.parse({ acao: "cancelar", motivo: "Desistiu" }), principal("compras"), AGORA)),
+      () => entrada(item, "5", pedido), "advisory");
     expect(cancelou.status).toBe("fulfilled");
     expect(entrada1).toMatchObject({ status: "rejected", reason: expect.objectContaining({ message: expect.stringMatching(/está cancelado/) }) });
     expect(await emEstoque(item)).toBe("0.000");
@@ -396,11 +437,9 @@ describe.skipIf(!HABILITADO)("estoque: operador só com a tela de Estoque, no lo
     const item = await criarItem();
     const pedido = await pedidoCom([{ quantidade: "10", itemDeEstoqueId: item }]);
     // A edição tira o vínculo com o item: apagar a linha antiga não trava o item, só o pedido.
-    lenta.segurar = "compras.pedido.updated";
-    const editar = como("compras", () => comprasLento.editar(pedido, editarPedidoDeCompraSchema.parse({ itens: [{ descricao: "material", quantidade: "10" }] }), principal("compras"), AGORA));
-    await depois(200);
-    const [editou, entrada1] = await Promise.allSettled([editar, entrada(item, "8", pedido)]);
-    lenta.segurar = null;
+    const [editou, entrada1] = await corrida("compras.pedido.updated",
+      () => como("compras", () => comprasLento.editar(pedido, editarPedidoDeCompraSchema.parse({ itens: [{ descricao: "material", quantidade: "10" }] }), principal("compras"), AGORA)),
+      () => entrada(item, "8", pedido), "advisory");
     expect(editou.status).toBe("fulfilled");
     expect(entrada1).toMatchObject({ status: "rejected", reason: expect.objectContaining({ message: expect.stringMatching(/não tem este item vinculado/) }) });
     expect(await emEstoque(item)).toBe("0.000");
@@ -413,6 +452,23 @@ describe.skipIf(!HABILITADO)("estoque: operador só com a tela de Estoque, no lo
     expect(resultados.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     expect(resultados.find((r) => r.status === "rejected")).toMatchObject({ reason: expect.any(EstadoInvalido) });
     expect(await emEstoque(item)).toBe("6.000");
+  }, PRAZO_MS);
+
+  it("a entrada espera a trava do pedido antes de travar o item, com o id do pedido em qualquer grafia (revisão leva 6)", async () => {
+    const item = await criarItem();
+    const pedido = await pedidoCom([{ quantidade: "10", itemDeEstoqueId: item }]);
+    let entrou: Promise<unknown> | undefined;
+    await root.$transaction(async (t) => {
+      // Outra transação segura a trava do pedido, pedida com o id em maiúsculas.
+      await travarPedidoDeCompra(t, pedido.toUpperCase());
+      entrou = entrada(item, "4", pedido);
+      entrou.catch(() => undefined);
+      await esperandoTrava("advisory");
+      // Parada na trava do pedido, a entrada ainda não pegou o item: ele está livre.
+      expect(await t.$queryRaw<{ id: string }[]>`SELECT id FROM public.itens_de_estoque WHERE id = ${item}::uuid FOR UPDATE NOWAIT`).toHaveLength(1);
+    }, { timeout: 20_000 });
+    await entrou;
+    expect(await emEstoque(item)).toBe("4.000");
   }, PRAZO_MS);
 
   it("a função restrita não entrega nada sem sessão, nem para par item/pedido de outra empresa (revisão leva 3, S3)", async () => {
@@ -447,13 +503,11 @@ describe.skipIf(!HABILITADO)("estoque: operador só com a tela de Estoque, no lo
 
     it("a empresa não muda enquanto uma movimentação do item está gravando", async () => {
       const item = await criarItem();
-      lenta.segurar = "estoque.movimentacao.created";
-      const mover = como("estoque", () => estoqueLento.registrarMovimentacao(registrarMovimentacaoSchema.parse({
-        tipo: "entrada", itemId: item, quantidade: "2", custoUnitario: "1.00", origem: { tipo: "outra" },
-      }), principal("estoque"), AGORA));
-      await depois(200);
-      const [moveu, trocou] = await Promise.allSettled([mover, trocarEmpresa(item)]);
-      lenta.segurar = null;
+      const [moveu, trocou] = await corrida("estoque.movimentacao.created",
+        () => como("estoque", () => estoqueLento.registrarMovimentacao(registrarMovimentacaoSchema.parse({
+          tipo: "entrada", itemId: item, quantidade: "2", custoUnitario: "1.00", origem: { tipo: "outra" },
+        }), principal("estoque"), AGORA)),
+        () => trocarEmpresa(item));
       expect(moveu.status).toBe("fulfilled");
       expect(trocou).toMatchObject({ status: "rejected", reason: expect.any(EstadoInvalido) });
       expect(await empresaDe(item)).toBe("plugga");
@@ -461,11 +515,7 @@ describe.skipIf(!HABILITADO)("estoque: operador só com a tela de Estoque, no lo
 
     it("o pedido não vincula o item cuja empresa está mudando", async () => {
       const item = await criarItem();
-      lenta.segurar = "estoque.item.updated";
-      const trocar = trocarEmpresa(item, estoqueLento);
-      await depois(200);
-      const [trocou, vinculou] = await Promise.allSettled([trocar, pedidoCom([{ quantidade: "1", itemDeEstoqueId: item }])]);
-      lenta.segurar = null;
+      const [trocou, vinculou] = await corrida("estoque.item.updated", () => trocarEmpresa(item, estoqueLento), () => pedidoCom([{ quantidade: "1", itemDeEstoqueId: item }]));
       expect(trocou.status).toBe("fulfilled");
       expect(vinculou).toMatchObject({ status: "rejected", reason: expect.any(RequisicaoInvalida) });
       expect(await root.itemDePedido.count({ where: { itemDeEstoqueId: item } })).toBe(0);

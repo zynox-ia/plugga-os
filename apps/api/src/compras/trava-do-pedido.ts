@@ -17,5 +17,6 @@ import type { Prisma } from "@prisma/client";
  * não ser superusuário). A trava não lê nem expõe nada do pedido.
  */
 export async function travarPedidoDeCompra(tx: Prisma.TransactionClient, pedidoId: string): Promise<void> {
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('compras.pedido'), hashtext(${pedidoId}::text))`;
+  // A chave vem do uuid canônico (o banco reescreve em minúsculas): o mesmo pedido em outra grafia é a mesma trava.
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('compras.pedido'), hashtext(${pedidoId}::uuid::text))`;
 }
