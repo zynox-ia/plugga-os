@@ -32,7 +32,7 @@ import { CardDeMetrica } from "../suprimentos/card-de-metrica";
 import { EmpresaComPonto, PontoDaEmpresa } from "../suprimentos/empresa";
 import { FiltroComBusca } from "../suprimentos/menu-com-busca";
 import { Badge, Button, IconSearch } from "../ui";
-import { iconeDoProjeto, Orcamento, SeloDoPrototipo, TOM_DA_SITUACAO } from "./centro-de-custo-partes";
+import { BarraDoOrcamento, iconeDoProjeto, Orcamento, SeloDoPrototipo, TOM_DA_SITUACAO } from "./centro-de-custo-partes";
 import styles from "./centro-de-custo.module.css";
 import { FichaDoProjeto } from "./ficha-do-projeto";
 import estilosCards from "./lancamentos.module.css";
@@ -217,18 +217,12 @@ function CardsDosProjetos({ projetos, hrefDaFicha, aoAbrir, aoCriarEntrada, most
           <div><dt>Recebido</dt><dd>{reais(r.recebido)}</dd>{r.aReceber ? <dd className={styles.notaDoNumero}>+ {reais(r.aReceber)} a receber</dd> : null}</div>
           <div><dt>Gasto</dt><dd>{reais(r.gasto)}</dd>{r.aPagar ? <dd className={styles.notaDoNumero}>+ {reais(r.aPagar)} a pagar</dd> : null}</div>
         </dl>
-        <div className={styles.orcamentoEmLinha}>
-          <span>Orçamento</span>
-          {r.orcamento ? <>
-            <span className={`${styles.trilho} ${styles.trilhoDaLinha} ${r.orcamento.estourou ? styles.trilhoEstourado : ""}`} role="progressbar" aria-label={`Orçamento consumido de ${p.nome}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, r.orcamento.percentual)} aria-valuetext={`${r.orcamento.percentual}% de ${reais(r.orcamento.valor)}`}><span style={{ inlineSize: `${Math.min(100, r.orcamento.percentual)}%` }} /></span>
-            <strong className={r.orcamento.estourou ? styles.negativo : undefined}>{r.orcamento.percentual}%{r.orcamento.estourou ? " · acima" : ""}</strong>
-          </> : <span className={styles.semOrcamentoNaLinha}>sem orçamento</span>}
-        </div>
+        <BarraDoOrcamento projeto={p} />
         <footer className={`${estilosCards.rodape} ${styles.rodapeCompacto}`}>
           <span className={estilosCards.prazo}><span>{p.responsavel ?? "Sem responsável"}</span><small>{p.inicio ? `desde ${dataCurta(p.inicio)}` : "sem início"}</small></span>
           <Badge tone={TOM_DA_SITUACAO[p.situacao]}>{ROTULO_DA_SITUACAO[p.situacao]}</Badge>
-          <Button variant="secondary" size="sm" iconOnly icon={<Plus size={14} />} aria-label={`Nova entrada em ${p.nome}, de ${p.cliente.nome}`} title={`Nova entrada em ${p.nome}`} onClick={() => aoCriarEntrada(p)} />
-          <Button variant="secondary" size="sm" iconOnly icon={<Eye size={14} />} aria-label={`Abrir o centro de custo de ${p.nome}`} title={`Abrir o centro de custo de ${p.nome}`} onClick={() => aoAbrir(p.id)} />
+          <Button variant="secondary" size="sm" className={styles.botaoDoRodape} iconOnly icon={<Plus size={13} />} aria-label={`Nova entrada em ${p.nome}, de ${p.cliente.nome}`} title={`Nova entrada em ${p.nome}`} onClick={() => aoCriarEntrada(p)} />
+          <Button variant="secondary" size="sm" className={styles.botaoDoRodape} iconOnly icon={<Eye size={13} />} aria-label={`Abrir o centro de custo de ${p.nome}`} title={`Abrir o centro de custo de ${p.nome}`} onClick={() => aoAbrir(p.id)} />
         </footer>
       </article>;
     })}

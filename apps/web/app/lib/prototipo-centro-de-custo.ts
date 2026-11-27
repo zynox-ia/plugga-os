@@ -324,3 +324,37 @@ export function entradaNova(c: CamposDaNovaEntrada, sequencia: number): Entrada 
 
 /** O projeto com as entradas criadas nesta sessão primeiro: os totais passam a contá-las. */
 export const comEntradasNovas = (p: Projeto, novas: readonly Entrada[]): Projeto => (novas.length ? { ...p, entradas: [...novas, ...p.entradas] } : p);
+
+// ---------------------------------------------------------------- barra do orçamento (no estilo da barra do Estoque)
+
+export type BarraDoOrcamento = {
+  /** Percentuais do trilho (0 a 100). */
+  saiu: number;
+  /** Até onde vai o comprometido (o que saiu mais o a pagar); o trecho entre `saiu` e `comprometido` é hachurado. */
+  comprometido: number;
+  /** Onde fica o traço do limite do orçamento. */
+  limite: number;
+  tom: "normal" | "atencao" | "estourado";
+  legenda: string;
+  rotulo: string;
+};
+
+/** A partir de 90% do orçamento comprometido, a barra fica em atenção. */
+export const ATENCAO_DO_ORCAMENTO = 90;
+
+/**
+ * A barra do orçamento: sólido o que já saiu (pago e material do estoque),
+ * hachurado o comprometido que ainda não saiu (a pagar) e o traço no limite do
+ * orçamento. O trilho vai um pouco além do orçamento (15%) para o traço não
+ * ficar colado na ponta e o estouro aparecer depois dele.
+ */
+export function barraDoOrcamento(r: ResumoDoProjeto): BarraDoOrcamento | null {
+  if (!r.orcamento) return null;
+  const { valor, percentual, estourou } = r.orcamento;
+  const escala = Math.max(valor * 1.15, r.comprometido);
+  const pct = (centavos: number) => Math.round((centavos / escala) * 1000) / 10;
+  const tom = estourou ? "estourado" : percentual >= ATENCAO_DO_ORCAMENTO ? "atencao" : "normal";
+  const legenda = estourou ? `Orçamento ${reais(valor)} · ${reais(r.comprometido - valor)} acima` : `Orçamento ${reais(valor)} · ${percentual}% consumido`;
+  const rotulo = `${legenda}: ${reais(r.gasto)} já saiu${r.aPagar ? ` e ${reais(r.aPagar)} a pagar` : ""}`;
+  return { saiu: pct(r.gasto), comprometido: pct(r.comprometido), limite: pct(valor), tom, legenda, rotulo };
+}

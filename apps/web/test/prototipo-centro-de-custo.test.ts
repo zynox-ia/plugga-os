@@ -7,6 +7,7 @@ import type { Acesso, Tela } from "@plugga/shared";
 
 import { fechadaPeloPortaoDoFinanceiro, podeAbrirPagina } from "../app/lib/acesso-paginas.ts";
 import {
+  barraDoOrcamento,
   centavosDoTexto,
   comEntradasNovas,
   entradaNova,
@@ -237,5 +238,23 @@ describe("nova entrada a partir do centro de custo (PLU-362)", () => {
     assert.equal(comEntradasNovas(p, []), p, "sem novas, o mesmo projeto");
     // O projeto vazio deixa de ser vazio com a primeira entrada.
     assert.equal(projetoVazio(comEntradasNovas(projeto("carport-solar-joao"), [nova])), false);
+  });
+});
+
+describe("barra do orçamento no estilo do Estoque (PLU-362)", () => {
+  it("sólido o que saiu, hachurado o a pagar, traço no limite; estouro depois do traço", () => {
+    const solar = barraDoOrcamento(resumoDoProjeto(projeto("usina-solar-residencial-joao")))!;
+    assert.equal(solar.tom, "normal");
+    assert.ok(solar.saiu < solar.comprometido && solar.comprometido < solar.limite);
+    assert.equal(solar.legenda.replace(/\s/g, " "), "Orçamento R$ 68.000,00 · 70% consumido");
+    const condominio = barraDoOrcamento(resumoDoProjeto(projeto("usina-solar-condominio")))!;
+    assert.equal(condominio.tom, "estourado");
+    assert.ok(condominio.limite < condominio.comprometido && condominio.comprometido <= 100, "o estouro aparece depois do traço do limite");
+    // Estouro maior que a folga de 15%: o comprometido ocupa o trilho todo e o traço recua.
+    const muito = barraDoOrcamento({ ...resumoDoProjeto(projeto("usina-solar-condominio")), comprometido: 62_000_000, orcamento: { valor: 31_000_000, percentual: 200, estourou: true } })!;
+    assert.deepEqual([muito.comprometido, muito.limite], [100, 50]);
+    assert.equal(condominio.legenda.replace(/\s/g, " "), "Orçamento R$ 310.000,00 · R$ 25.488,00 acima");
+    assert.equal(barraDoOrcamento(resumoDoProjeto(projeto("eletroposto-ponto-certo")))!.tom, "atencao", "92% fica em atenção");
+    assert.equal(barraDoOrcamento(resumoDoProjeto(projeto("operacao-manutencao-joao"))), null, "sem orçamento, sem barra");
   });
 });

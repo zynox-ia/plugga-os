@@ -24,7 +24,7 @@ import estilosPipelines from "../pipelines/tela-pipelines.module.css";
 import { CardDeMetrica } from "../suprimentos/card-de-metrica";
 import { EmpresaComPonto } from "../suprimentos/empresa";
 import { Badge } from "../ui";
-import { iconeDoProjeto, SeloDoPrototipo, TOM_DA_SITUACAO } from "./centro-de-custo-partes";
+import { BarraDoOrcamento, iconeDoProjeto, SeloDoPrototipo, TOM_DA_SITUACAO } from "./centro-de-custo-partes";
 import styles from "./centro-de-custo.module.css";
 
 /**
@@ -105,9 +105,10 @@ export function ResumoDoProjeto({ projeto: p, naFicha = false }: { projeto: Proj
       nota={p.material.length ? `${p.material.length === 1 ? "1 saída" : `${p.material.length} saídas`} de estoque, pelo custo` : "nenhuma saída de estoque"} />
     <CardDeMetrica rotulo="Resultado" valor={<span className={r.resultado < 0 ? styles.negativo : undefined}>{reais(r.resultado)}</span>} icone={<Scale />}
       nota={r.aReceber || r.aPagar ? `previsto ${reais(r.resultadoPrevisto)}, com o que falta receber e pagar` : "recebido menos pago e material"} />
-    {r.orcamento ? <CardDeMetrica rotulo="Orçamento consumido" icone={<Wallet />} tom={r.orcamento.estourou ? "ambar" : "primaria"} barra={Math.min(100, r.orcamento.percentual)}
+    {/* A mesma barra dos cards, no estilo da barra do Estoque. */}
+    {r.orcamento ? <CardDeMetrica rotulo="Orçamento consumido" icone={<Wallet />}
       valor={<span className={r.orcamento.estourou ? styles.negativo : undefined}>{r.orcamento.percentual}%</span>}
-      nota={r.orcamento.estourou ? `${reais(r.comprometido - r.orcamento.valor)} acima de ${reais(r.orcamento.valor)}` : `${reais(r.comprometido)} de ${reais(r.orcamento.valor)}`} /> : null}
+      nota={<BarraDoOrcamento projeto={p} />} /> : null}
   </div>;
 }
 

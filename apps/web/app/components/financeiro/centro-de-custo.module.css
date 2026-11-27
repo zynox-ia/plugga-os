@@ -257,7 +257,7 @@ a.linha:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2p
 .numerosDoCard dd { margin: 0; overflow: hidden; font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
 .numerosDoCard .notaDoNumero { color: var(--ui-muted); font-size: 12px; font-weight: 400; }
 /* v3: card compacto (pedido do André em 27/11/2026). Classe dobrada para vencer o .card de Lançamentos sem mexer nele. */
-.cardCompacto.cardCompacto { gap: 10px; padding: 14px 16px; }
+.cardCompacto.cardCompacto { gap: 9px; padding: 14px 16px; }
 @media (max-width: 720px) { .cardCompacto.cardCompacto { padding: 12px 14px; } }
 .topoDoCard { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .caixaCompacta.caixaCompacta { width: 34px; height: 34px; border-radius: 10px; }
@@ -268,13 +268,36 @@ a.linha:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2p
 .quemDoCard h3 a:hover { color: var(--ui-primary); }
 .quemDoCard h3 a:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 3px; border-radius: 4px; }
 .quemDoCard p { margin: 1px 0 0; overflow: hidden; color: var(--ui-muted); font-size: 12px; line-height: 16px; text-overflow: ellipsis; white-space: nowrap; }
-.cantoDoCard.cantoDoCard { flex: 0 1 auto; min-width: 0; max-width: 50%; align-self: center; overflow: hidden; }
+.cantoDoCard.cantoDoCard { flex: 0 1 auto; min-width: 120px; max-width: 50%; align-self: center; overflow: hidden; }
 .tipoDoCard { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .cantoDoCard > :not(.tipoDoCard) { flex: none; }
-.orcamentoEmLinha { display: flex; align-items: center; gap: 10px; min-height: 18px; color: var(--ui-muted); font-size: 12px; }
-.orcamentoEmLinha strong { flex: none; color: var(--ui-text); font-size: 12.5px; font-weight: 500; font-variant-numeric: tabular-nums; }
-.orcamentoEmLinha .trilhoDaLinha { flex: 1; width: auto; }
-.semOrcamentoNaLinha { color: var(--ui-muted); }
+/* v4: a barra do orçamento no estilo da barra do Estoque (estoque.module.css, .nivel*), sem mexer nele. */
+.barraOrc { --cor-da-barra: var(--ui-primary); display: grid; gap: 5px; min-width: 0; }
+.barraOrc_atencao { --cor-da-barra: #d98a00; }
+.barraOrc_estourado { --cor-da-barra: var(--ui-danger); }
+.barraOrcTrilho { position: relative; display: block; height: 8px; margin-top: 2px; border-radius: 999px; background: #e3eaf2; }
+.barraOrcSaiu { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 999px; background: var(--cor-da-barra); }
+/* O a pagar: a mesma cor, hachurada, por baixo do sólido, do início até o comprometido. */
+.barraOrcAPagar { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 999px; background: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.75) 0 3px, transparent 3px 6px), var(--cor-da-barra); }
+.barraOrcLimite { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--ui-text); }
+.barraOrcLegenda { display: block; overflow: hidden; color: var(--ui-muted); font-size: 12px; line-height: 16px; text-overflow: ellipsis; white-space: nowrap; }
+.barraOrc_estourado .barraOrcLegenda { color: var(--ui-danger); }
+.semOrcamentoNaLinha { display: block; color: var(--ui-muted); font-size: 12px; line-height: 16px; }
+
+/* v4: rodapé do card com tudo na mesma altura (24 px): o selo e os dois botões. O desenho do botão
+   fica com 24 px e a área de clique com 32 px (a do botão pequeno do design system), pelo ::before. */
+.rodapeCompacto :global(.ui-badge) { box-sizing: border-box; height: 24px; padding-block: 0; }
+.rodapeCompacto.rodapeCompacto { gap: 8px; }
+.botaoDoRodape.botaoDoRodape { position: relative; width: 24px; height: 24px; min-height: 24px; border-radius: 999px; }
+.botaoDoRodape.botaoDoRodape::before { content: ""; position: absolute; inset: -4px; border-radius: 999px; }
+.botaoDoRodape.botaoDoRodape:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
+/* No celular o design system pede alvo de 44 px (ui.css): o desenho segue com 24 px e a área de
+   clique cresce para 44 × 44; os dois botões ficam a 20 px um do outro para as áreas não se sobreporem. */
+@media (max-width: 767px) {
+  .botaoDoRodape.botaoDoRodape { min-width: 24px; }
+  .botaoDoRodape.botaoDoRodape::before { inset: -10px; }
+  .botaoDoRodape + .botaoDoRodape { margin-left: 12px; }
+}
 .rodapeCompacto.rodapeCompacto { padding-top: 10px; }
 
 /* Ficha em modal: os cards de métrica se ajustam à largura do modal, não à da janela. */
@@ -301,3 +324,6 @@ a.botaoLink { text-decoration: none; }
 .valorTravado { display: inline-flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .valorTravado > svg { flex: none; color: var(--ui-muted); }
 .dicaTravada { margin: -4px 0 0; }
+
+/* Na ficha, a legenda do orçamento cabe em duas linhas dentro do card de métrica. */
+.metricasDaFicha .barraOrcLegenda { white-space: normal; }
