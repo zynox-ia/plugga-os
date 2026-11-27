@@ -16,3 +16,59 @@ export function displayCurrency(value: string): string {
   const [whole = "0", fraction = ""] = value.split(".");
   return `${BigInt(whole).toLocaleString("pt-BR")},${fraction.padEnd(2, "0")}`;
 }
+
+/** Algarismos que o campo aceita (13 inteiros e 2 centavos), dentro do que a API guarda. */
+export const MAX_CURRENCY_DIGITS = 15;
+
+export type MaskedCurrency = { text: string; value: string };
+
+const minus = /[-−]/g;
+
+/** "1234" → "1.234": separador de milhar, sem tocar nos centavos. */
+const withThousands = (whole: string) => whole.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+
+/** Centavos corridos ("123456") → texto do campo e valor decimal ("1234.56"). `negative` só mexe no texto e no valor quando há algo além de zero. */
+function fromDigits(digits: string, negative: boolean): MaskedCurrency {
+  const padded = digits.padStart(3, "0");
+  const whole = padded.slice(0, -2);
+  const cents = padded.slice(-2);
+  const isZero = /^0+$/.test(digits);
+  return {
+    text: `${negative ? "-" : ""}${withThousands(whole)},${cents}`,
+    value: `${negative && !isZero ? "-" : ""}${whole}.${cents}`,
+  };
+}
+
+/**
+ * Máscara de app de banco: o que o campo mostra agora (`raw`, com a tecla já aplicada pelo navegador)
+ * vira só algarismos, que entram pelos centavos. `previous` é o que o campo mostrava antes e só serve
+ * para distinguir apagar de digitar zero. Letras e símbolos somem; o hífen alterna o sinal onde é permitido.
+ */
+export function maskCurrencyTyping(raw: string, previous: string, allowNegative = false): MaskedCurrency {
+  const negative = allowNegative && ((raw.match(minus)?.length ?? 0) % 2 === 1);
+  const all = raw.replace(/\D/g, "");
+  const digits = all.slice(0, MAX_CURRENCY_DIGITS).replace(/^0+(?=\d)/, "");
+  const erased = all.length < previous.replace(/\D/g, "").length;
+  if (/^0*$/.test(digits) && (erased || all === "")) return { text: negative ? "-" : "", value: "" };
+  return fromDigits(digits, negative);
+}
+
+/** Valor colado ("1.234,56", "1234,56", "1234.56", "R$ 1.234,56"): `undefined` quando não é valor em reais. */
+export function parseCurrencyPaste(pasted: string, allowNegative = false): MaskedCurrency | undefined {
+  const text = pasted.trim().replace(/^R\$\s*/, "").replace(/^−/, "-");
+  const negative = text.startsWith("-");
+  if (negative && !allowNegative) return undefined;
+  const parsed = parseCurrencyInput(negative ? text.slice(1) : text);
+  if (!parsed) return undefined;
+  const [whole = "0", cents = "00"] = parsed.split(".");
+  if (whole.replace(/^0+(?=\d)/, "").length + 2 > MAX_CURRENCY_DIGITS) return undefined;
+  return fromDigits(`${whole}${cents}`.replace(/^0+(?=\d)/, ""), negative);
+}
+
+/** O valor decimal que vem de fora ("2640.00", "-200.00") como o campo o mostra. Vazio ou inválido, vazio. */
+export function currencyFieldText(value: string, allowNegative = false): string {
+  const negative = value.startsWith("-");
+  if (negative && !allowNegative) return "";
+  const shown = displayCurrency(negative ? value.slice(1) : value);
+  return shown && negative ? `-${shown}` : shown;
+}
