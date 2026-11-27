@@ -74,6 +74,17 @@ export function inicioDoDiaEmManaus(dia: string): Date {
   return instanteEmManaus(lerDia(dia), 0, 0, 0, 0);
 }
 
+/**
+ * Primeiro instante do dia seguinte a AAAA-MM-DD em Manaus: o fim EXCLUSIVO de
+ * um período que inclui o dia (`>= início do primeiro` e `< isto`). O banco
+ * guarda microssegundos, que um "último instante" em milissegundos perderia.
+ * Sai das partes do dia, sem formatar data, então vale até em 9999-12-31.
+ */
+export function inicioDoDiaSeguinteEmManaus(dia: string): Date {
+  const lido = lerDia(dia);
+  return instanteEmManaus({ ...lido, dia: lido.dia + 1 }, 0, 0, 0, 0);
+}
+
 /** Último instante do dia AAAA-MM-DD em Manaus (filtro "até" e prazo de entrega desejado). */
 export function fimDoDiaEmManaus(dia: string): Date {
   return instanteEmManaus(lerDia(dia), 23, 59, 59, 999);

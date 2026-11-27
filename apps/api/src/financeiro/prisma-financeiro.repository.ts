@@ -26,7 +26,7 @@ import {
 
 import { AuditAppender } from "../audit/audit-appender";
 import { AcessoNegado, Conflito, EstadoInvalido, NaoEncontrado, RequisicaoInvalida } from "../common/errors/dominio";
-import { diaEmManaus, inicioDoDiaEmManaus } from "../compras/dias-uteis";
+import { diaEmManaus, inicioDoDiaEmManaus, inicioDoDiaSeguinteEmManaus } from "../compras/dias-uteis";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
 import { linhaDoTempo, nomePadronizadoDoComprovante } from "./financeiro.detalhe";
@@ -560,7 +560,8 @@ export class PrismaFinanceiroRepository {
         tipo: { in: filtro.tipos },
         canceladoEm: null,
         ...(filtro.empresa ? { companyId: filtro.empresa } : {}),
-        liquidadoEm: { gte: inicioDoDiaEmManaus(filtro.de), lte: inicioDoDiaEmManaus(filtro.ate) },
+        // Semiaberto, até o início do dia seguinte: a liquidação com hora no último dia também entra.
+        liquidadoEm: { gte: inicioDoDiaEmManaus(filtro.de), lt: inicioDoDiaSeguinteEmManaus(filtro.ate) },
       },
     };
     const [total, anexos] = await this.prisma.comContexto((tx) => Promise.all([

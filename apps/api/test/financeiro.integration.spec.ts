@@ -282,6 +282,21 @@ describe.skipIf(!HABILITADO)("financeiro: lançamentos no Postgres", () => {
     expect((await repositorio.comprovantesDoPeriodo({ de: "2026-11-22", ate: "2026-11-22", tipos: ["saida"] }, 500)).itens.filter((i) => i.nomePadronizado.includes(`${marca} Cliente`))).toHaveLength(0);
   }, PRAZO_MS);
 
+  it("o ZIP do período inclui o comprovante liquidado às 23:59 do último dia, e não o do dia seguinte (PLU-337)", async () => {
+    const id = await novaCobranca("2027-08");
+    await agir(id, { acao: "registrar_nf", numero: "NFS-e 8" });
+    await anexar(id, "boleto");
+    await agir(id, { acao: "registrar_boleto" });
+    await anexar(id, "comprovante");
+    await agir(id, { acao: "registrar_recebimento", contaCorrenteId: ids.contaPlugga, recebidoEm: "2026-11-20", valor: "50.00" });
+    // Dado legado ou importado, com hora: 20/11 às 23:59:30 em Manaus (03:59:30Z do dia 21).
+    await prisma.$executeRaw`UPDATE public.lancamentos SET recebido_em = '2026-11-21 03:59:30+00' WHERE id = ${id}::uuid`;
+    const doDia = (dia: string) => comoAdmin(() => repositorio.comprovantesDoPeriodo({ de: dia, ate: dia, tipos: ["entrada"] }, 500));
+    const nomes = (r: Awaited<ReturnType<typeof doDia>>) => r.itens.filter((i) => i.nomePadronizado.includes(`${marca} Cliente`) && i.nomePadronizado.includes(" · R$ 50,00") && i.nomePadronizado.startsWith("2026-11-20"));
+    expect(nomes(await doDia("2026-11-20"))).toHaveLength(1);
+    expect(nomes(await doDia("2026-11-21"))).toHaveLength(0);
+  }, PRAZO_MS);
+
   it("a cobrança anda NF → boleto (com o anexo) → envio → cobrança → recebimento", async () => {
     const id = await novaCobranca("2027-03");
     await agir(id, { acao: "registrar_nf", numero: "NFS-e 2026/000402" });

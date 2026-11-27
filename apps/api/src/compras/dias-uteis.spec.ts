@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { adicionarDiasUteis, cumpriuPrazo, diaEmManaus, fimDoDiaEmManaus, inicioDoDiaEmManaus, situacaoDoPrazo } from "./dias-uteis";
+import { adicionarDiasUteis, cumpriuPrazo, diaEmManaus, fimDoDiaEmManaus, inicioDoDiaEmManaus, inicioDoDiaSeguinteEmManaus, situacaoDoPrazo } from "./dias-uteis";
 
 // Manaus é UTC−4 sem horário de verão: 10:00 em Manaus = 14:00Z.
 const manaus = (diaHora: string) => new Date(`${diaHora}-04:00`);
@@ -67,6 +67,14 @@ describe("dias de Manaus", () => {
   it("início e fim do dia são os limites locais", () => {
     expect(inicioDoDiaEmManaus("2026-11-23").toISOString()).toBe("2026-11-23T04:00:00.000Z");
     expect(fimDoDiaEmManaus("2026-11-23").toISOString()).toBe("2026-11-24T03:59:59.999Z");
+  });
+
+  it("o início do dia seguinte é o fim exclusivo de um período que inclui o dia, na virada do mês, do ano e no extremo do calendário", () => {
+    expect(inicioDoDiaSeguinteEmManaus("2026-11-30").toISOString()).toBe("2026-12-01T04:00:00.000Z");
+    expect(inicioDoDiaSeguinteEmManaus("2026-12-31").toISOString()).toBe("2027-01-01T04:00:00.000Z");
+    expect(inicioDoDiaSeguinteEmManaus("2028-02-28").toISOString()).toBe("2028-02-29T04:00:00.000Z");
+    expect(inicioDoDiaSeguinteEmManaus("9999-12-31").getTime()).toBe(Date.UTC(10000, 0, 1, 4));
+    expect(() => inicioDoDiaSeguinteEmManaus("2026-02-30")).toThrow();
   });
 
   it("recusa dia inexistente", () => {
