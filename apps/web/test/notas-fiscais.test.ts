@@ -12,7 +12,9 @@ import {
   notasDoLado,
   numeroNormalizado,
   temFiltroNasNotas,
+  enfileirarGravacao,
   estadoDoEnderecoDasNotas,
+  reconhecerGravacao,
   visaoDasNotas,
   visoesDasNotas,
   ORDEM_DOS_CAMPOS,
@@ -264,5 +266,31 @@ describe("estado das Notas fiscais no endereço (?lado, ?visao, ?de e ?ate)", ()
     const estado = estadoDoEnderecoDasNotas(new URLSearchParams("lado=x&visao=quadro&de=2026-11-20&ate=2026-11-10"));
     assert.deepEqual(estado, { lado: "entrada", visao: "lista", intervalo: null });
     assert.deepEqual(estadoDoEnderecoDasNotas(new URLSearchParams("de=2026-11-01")).intervalo, null);
+  });
+});
+
+describe("gravações da tela no endereço: a fila de chaves que voltam pelo useSearchParams", () => {
+  it("gravar a mesma query que já está no endereço não enfileira nada (não haveria nova execução do efeito)", () => {
+    assert.deepEqual(enfileirarGravacao([], "visao=cards", "visao=cards"), []);
+    assert.deepEqual(enfileirarGravacao(["a=1"], "visao=cards", "visao=cards"), ["a=1"]);
+  });
+  it("uma query nova entra no fim da fila", () => {
+    assert.deepEqual(enfileirarGravacao([], "", "visao=cards"), ["visao=cards"]);
+    assert.deepEqual(enfileirarGravacao(["visao=cards"], "visao=cards", "lado=saidas"), ["visao=cards", "lado=saidas"]);
+  });
+  it("a chave da própria tela é reconhecida e some da fila, junto com as anteriores", () => {
+    assert.deepEqual(reconhecerGravacao(["a=1", "b=2", "c=3"], "b=2"), { propria: true, fila: ["c=3"] });
+    assert.deepEqual(reconhecerGravacao(["a=1"], "a=1"), { propria: true, fila: [] });
+  });
+  it("uma chave que não está na fila é navegação de fora: a fila obsoleta é descartada", () => {
+    assert.deepEqual(reconhecerGravacao(["a=1", "b=2"], "x=9"), { propria: false, fila: [] });
+    assert.deepEqual(reconhecerGravacao([], "x=9"), { propria: false, fila: [] });
+  });
+  it("gravou X, alguém navegou para Y e depois voltou para X: a volta é sincronizada, não ignorada", () => {
+    let fila = enfileirarGravacao([], "", "visao=cards");
+    const paraY = reconhecerGravacao(fila, "lado=saidas");
+    assert.equal(paraY.propria, false);
+    fila = paraY.fila;
+    assert.equal(reconhecerGravacao(fila, "visao=cards").propria, false);
   });
 });

@@ -11,8 +11,10 @@ import {
   filtrarNotas,
   notasDoLado,
   periodosDasNotas,
+  enfileirarGravacao,
   estadoDoEnderecoDasNotas,
   quantasNotas,
+  reconhecerGravacao,
   visoesDasNotas,
   resumoDoLado,
   ROTULO_DO_PERIODO_DAS_NOTAS,
@@ -85,8 +87,9 @@ export function NotasFiscaisView({ hoje, ladoInicial, intervaloInicial, visaoIni
   const chaveDoEndereco = enderecoAtual.toString();
   const gravadas = useRef<string[]>([]);
   useEffect(() => {
-    const achada = gravadas.current.indexOf(chaveDoEndereco);
-    if (achada !== -1) { gravadas.current = gravadas.current.slice(achada + 1); return; }
+    const { propria, fila } = reconhecerGravacao(gravadas.current, chaveDoEndereco);
+    gravadas.current = fila;
+    if (propria) return;
     const doEndereco = estadoDoEnderecoDasNotas(new URLSearchParams(chaveDoEndereco));
     setLado(doEndereco.lado);
     setVisao(doEndereco.visao);
@@ -119,7 +122,7 @@ export function NotasFiscaisView({ hoje, ladoInicial, intervaloInicial, visaoIni
   }
   /** Grava o endereço sem recarregar e anota a chave, para o efeito acima não tratá-la como navegação de fora. */
   function gravar(url: URL) {
-    gravadas.current.push(url.searchParams.toString());
+    gravadas.current = enfileirarGravacao(gravadas.current, new URL(window.location.href).searchParams.toString(), url.searchParams.toString());
     window.history.replaceState(null, "", url);
   }
   function escolherVisao(nova: VisaoDasNotas) {

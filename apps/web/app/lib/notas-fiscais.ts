@@ -322,3 +322,16 @@ export function estadoDoEnderecoDasNotas(parametros: { get(nome: string): string
     intervalo: lerIntervalo(parametros.get("de"), parametros.get("ate")),
   };
 }
+
+/**
+ * A tela grava o endereço (history.replaceState) e a mesma mudança volta pelo useSearchParams. A fila guarda
+ * as chaves gravadas que ainda vão voltar, para a sincronização não tratá-las como navegação de fora.
+ * Gravar o que já está no endereço não faz o efeito rodar de novo: não entra na fila.
+ */
+export const enfileirarGravacao = (fila: readonly string[], atual: string, nova: string): string[] => (nova === atual ? [...fila] : [...fila, nova]);
+
+/** A chave que chegou é uma gravação da tela? Se sim, sai da fila com as anteriores; se não, é navegação de fora e a fila obsoleta é descartada. */
+export function reconhecerGravacao(fila: readonly string[], chave: string): { propria: boolean; fila: string[] } {
+  const achada = fila.indexOf(chave);
+  return achada === -1 ? { propria: false, fila: [] } : { propria: true, fila: fila.slice(achada + 1) };
+}
