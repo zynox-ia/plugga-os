@@ -343,7 +343,8 @@ async function main() {
         segmentHistory: { create: { segment: 'r1' } },
       },
     });
-    const location = partner.locations[0];
+    // Criado logo acima, no mesmo `create`.
+    const location = partner.locations[0]!;
     const connector = location.stations[0]?.connectors[0];
     await prisma.evSession.create({
       data: {
