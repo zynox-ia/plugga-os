@@ -122,15 +122,22 @@ const numero = (valor: string): Numero => ({ numero: valor });
 type Celula = string | Numero;
 
 /**
- * Texto livre (nome de grupo e de categoria vêm do cadastro) que começa por
- * `=`, `+`, `-`, `@`, tab ou retorno a planilha executaria como fórmula
- * (OWASP, CSV Injection): ganha um apóstrofo na frente e vai entre aspas. O
- * separador, as aspas e a quebra de linha também vão entre aspas.
+ * Texto livre (nome de grupo e de categoria vêm do cadastro) que a planilha
+ * executaria como fórmula (OWASP, CSV Injection). Decide a forma canônica: o
+ * primeiro caractere significativo, depois de normalizar (NFKC, que leva
+ * `＝ ＋ － ＠` de largura cheia a `= + - @`) e de pular espaços e caracteres de
+ * controle iniciais. Tab e retorno no começo também contam. O texto assim ganha
+ * um apóstrofo na frente e vai entre aspas; o separador, as aspas e a quebra de
+ * linha também vão entre aspas.
  */
-const PREFIXO_DE_FORMULA = /^[=+\-@\t\r]/;
+export function pareceFormula(valor: string): boolean {
+  if (/^[\t\r]/.test(valor)) return true;
+  const significativo = valor.normalize("NFKC").replace(/^[\s\p{Cc}]+/u, "");
+  return /^[=+\-@]/.test(significativo);
+}
 function celula(valor: Celula): string {
   if (typeof valor !== "string") return valor.numero;
-  const texto = PREFIXO_DE_FORMULA.test(valor) ? `'${valor}` : valor;
+  const texto = pareceFormula(valor) ? `'${valor}` : valor;
   return texto !== valor || /[;"\n\r]/.test(texto) ? `"${texto.replace(/"/g, "\"\"")}"` : texto;
 }
 

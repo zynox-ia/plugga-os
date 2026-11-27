@@ -124,6 +124,24 @@ describe("CSV do relatório (PLU-360)", () => {
     assert.ok(linhas.includes("Resultado;-200,50"));
   });
 
+  it("a forma canônica decide: largura cheia (＝ ＋ － ＠) e espaço ou controle antes do prefixo também viram texto", () => {
+    const nomes = ["＝1+1", "＋SUM(A1)", "－2", "＠cmd", " =1+1", "　=1+1", "\u0001=1", "\n=1"];
+    const grupos = nomes.map((nome, i) => ({
+      chave: `g${i}`, codigo: `3.0${i}`, nome, total: "1.00", quantidade: 1, percentual: "10.0",
+      categorias: [],
+    }));
+    const csv = csvDoRelatorio({ ...relatorio, saidas: { total: "8.00", quantidade: 8, grupos } });
+    for (const nome of nomes) assert.ok(csv.includes(`Saídas;Grupo;"'${nome}";`), JSON.stringify(nome));
+    // Nome que começa por letra, ou por número, segue como está; e o número negativo segue numérico.
+    const legitimos = csvDoRelatorio({ ...relatorio, saidas: { total: "2.00", quantidade: 2, grupos: [
+      { chave: "a", codigo: "3.10", nome: "Água e esgoto", total: "1.00", quantidade: 1, percentual: "50.0", categorias: [] },
+      { chave: "b", codigo: "3.11", nome: "13º salário", total: "1.00", quantidade: 1, percentual: "50.0", categorias: [] },
+    ] } });
+    assert.ok(legitimos.includes("Saídas;Grupo;Água e esgoto;3.10;;1;1,00;50,0"));
+    assert.ok(legitimos.includes("Saídas;Grupo;13º salário;3.11;;1;1,00;50,0"));
+    assert.ok(legitimos.includes("\r\nResultado;-200,50\r\n"));
+  });
+
   it("a seção sem acesso aparece como tal e o resultado diz que é parcial; o nome do arquivo leva o período e a empresa", () => {
     const csv = csvDoRelatorio({ ...relatorio, entradas: null, resultado: null, empresa: "waze" });
     assert.ok(csv.includes("Entradas;Sem acesso;;;Falta a tela Contas a receber;;;"));
