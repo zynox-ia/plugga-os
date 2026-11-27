@@ -63,6 +63,11 @@ describe("Compras: unidade da linha vinculada ao estoque (PLU-328)", () => {
     const linha = { descricao: "Cabo", quantidade: "4", unidade: "cx", estoqueId: ID };
     assert.equal(unidadeParaEnviar(linha), "cx");
     assert.equal(unidadeParaEnviar({ unidade: "  " }), null);
+    // O recorte é o do contrato (só espaços ASCII): NBSP fica, e a linha conflita com "m" dos dois lados (revisão leva 15).
+    const nbsp = String.fromCharCode(0xa0) + "m";
+    assert.equal(unidadeParaEnviar({ unidade: nbsp }), nbsp);
+    assert.ok(unidadeDaLinha({ unidade: nbsp, estoqueId: ID }, doEstoque).conflito);
+    assert.equal(unidadeParaEnviar({ unidade: String.fromCharCode(11) + "m" + String.fromCharCode(13) }), "m");
     const corpo = {
       empresa: "plugga", titulo: "Antigo revisto", descricao: null, destino: "interno", obraId: null, clientId: null,
       itens: [{ descricao: linha.descricao, quantidade: linha.quantidade, unidade: unidadeParaEnviar(linha), itemDeEstoqueId: linha.estoqueId }],

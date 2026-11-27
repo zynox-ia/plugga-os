@@ -1,4 +1,4 @@
-import { unidadeDaLinhaConflita } from "@plugga/shared";
+import { aparaUnidade, unidadeDaLinhaConflita } from "@plugga/shared";
 
 /**
  * Unidade da linha do pedido de compra (PLU-328/332). A linha vinculada a um
@@ -35,10 +35,10 @@ export function unidadeDaLinha(
     return { exibida: linha.unidade, travada: true, conflito: null, desconhecida: "fora_da_lista", dica: "O item do estoque não está entre os ativos desta empresa: a unidade é conferida ao salvar." };
   }
   if (unidadeDaLinhaConflita(linha.unidade, doItem)) {
-    const daLinha = linha.unidade.trim();
+    const daLinha = aparaUnidade(linha.unidade);
     return { exibida: linha.unidade, travada: true, conflito: { daLinha, doItem }, desconhecida: null, dica: `Esta linha está em ${daLinha}, mas o item do estoque é controlado em ${doItem}.` };
   }
-  const exibida = linha.unidade.trim() ? linha.unidade : doItem;
+  const exibida = aparaUnidade(linha.unidade) ? linha.unidade : doItem;
   return { exibida, travada: true, conflito: null, desconhecida: null, dica: `Na unidade do item do estoque (${doItem}). Desvincule para mudar.` };
 }
 
@@ -55,7 +55,7 @@ export function erroDaLinha(porCampo: Readonly<Record<string, string | undefined
 
 /** A unidade que vai para a API: a da própria linha, sem conversão (vazia vira null e o servidor adota a do item). */
 export function unidadeParaEnviar(linha: { unidade: string }): string | null {
-  return linha.unidade.trim() || null;
+  return aparaUnidade(linha.unidade) || null;
 }
 
 /** Ao vincular: sem quantidade digitada, a linha adota a unidade do item; com quantidade, nada muda (o conflito aparece, se houver). */

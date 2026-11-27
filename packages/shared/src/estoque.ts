@@ -401,7 +401,16 @@ export function unidadeDaLinhaConflita(unidadeDaLinha: string | null | undefined
  * (`btrim(u, E' \t\n\r\f\v')` e `normalize(…, NFC)`): as duas pontas comparam igual.
  */
 function unidadeComparavel(unidade: string): string {
-  return unidade.replace(/^[ \t\n\r\f\v]+|[ \t\n\r\f\v]+$/g, "").normalize("NFC");
+  return aparaUnidade(unidade).normalize("NFC");
+}
+
+/**
+ * A unidade sem os espaços ASCII das pontas (espaço, tab, LF, VT, FF, CR), o
+ * mesmo recorte da comparação. Use para gravar e enviar a unidade, em vez do
+ * `trim` do JavaScript, que tira também espaços Unicode (NBSP e outros).
+ */
+export function aparaUnidade(unidade: string): string {
+  return unidade.replace(/^[ \t\n\r\f\v]+|[ \t\n\r\f\v]+$/g, "");
 }
 
 /**
