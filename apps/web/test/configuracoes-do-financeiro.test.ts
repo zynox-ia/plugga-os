@@ -238,14 +238,27 @@ describe("o rascunho das Preferências", () => {
     // O PATCH da Plugga voltou; o da Waze falhou.
     const salva = { ...categoria(52, "2.04.02", { nome: "Serviços bancários Plugga", tarifaBancaria: true }), desmarcada: { id: u(51), codigo: "2.04.01", nome: "Tarifas Plugga" } };
     const depois = comCategoriaSalva(plano, salva);
-    const pendente = rascunhoSemAsSalvas(rascunho, [salva]);
+    const pendente = rascunhoSemAsSalvas(rascunho, rascunho, [salva]);
     assert.deepEqual(pendente, { waze: u(53) });
     assert.deepEqual(escolhasDasTarifas(depois, pendente), { plugga: u(52), waze: u(53) });
     assert.deepEqual(mudancasDasTarifas(depois, pendente), [{ id: u(53), corpo: { tarifaBancaria: true } }]);
   });
 
   it("desmarcar (\"nenhuma\") também sai do rascunho quando confirmado", () => {
-    assert.deepEqual(rascunhoSemAsSalvas({ plugga: "", waze: u(53) }, [{ ...plano[0]!, tarifaBancaria: false }]), { waze: u(53) });
+    const rascunho = { plugga: "", waze: u(53) };
+    assert.deepEqual(rascunhoSemAsSalvas(rascunho, rascunho, [{ ...plano[0]!, tarifaBancaria: false }]), { waze: u(53) });
+  });
+
+  it("a troca feita com o PATCH em voo não some quando a resposta da escolha anterior chega", () => {
+    // Salvou A (2.04.02) na Plugga; antes da resposta, a pessoa trocou para B (nenhuma).
+    const enviado = { plugga: u(52) };
+    const atual = { plugga: "" };
+    const salva = { ...categoria(52, "2.04.02", { nome: "Serviços bancários Plugga", tarifaBancaria: true }), desmarcada: { id: u(51), codigo: "2.04.01", nome: "Tarifas Plugga" } };
+    const depois = comCategoriaSalva(plano, salva);
+    const pendente = rascunhoSemAsSalvas(atual, enviado, [salva]);
+    assert.deepEqual(pendente, { plugga: "" });
+    assert.deepEqual(escolhasDasTarifas(depois, pendente).plugga, "");
+    assert.deepEqual(mudancasDasTarifas(depois, pendente), [{ id: u(52), corpo: { tarifaBancaria: false } }]);
   });
 });
 

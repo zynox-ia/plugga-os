@@ -283,11 +283,17 @@ export function escolhasDasTarifas(categorias: readonly CategoriaFinanceira[], r
 
 /**
  * O rascunho sem as empresas cujo `PATCH` voltou: a que falhou continua pendente, com
- * a escolha de quem usa, para tentar de novo. A empresa vem da categoria salva.
+ * a escolha de quem usa, para tentar de novo. A empresa vem da categoria salva. Só sai
+ * a escolha que foi enviada: se a pessoa trocou a empresa enquanto o `PATCH` estava em
+ * voo, a troca mais nova continua pendente.
  */
-export function rascunhoSemAsSalvas(rascunho: Partial<Record<CompanyKey, string>>, salvas: readonly CategoriaFinanceira[]): Partial<Record<CompanyKey, string>> {
+export function rascunhoSemAsSalvas(
+  atual: Partial<Record<CompanyKey, string>>,
+  enviado: Partial<Record<CompanyKey, string>>,
+  salvas: readonly CategoriaFinanceira[],
+): Partial<Record<CompanyKey, string>> {
   const confirmadas = new Set(salvas.map((c) => c.empresa));
-  return Object.fromEntries(Object.entries(rascunho).filter(([e]) => !confirmadas.has(e as CompanyKey))) as Partial<Record<CompanyKey, string>>;
+  return Object.fromEntries(Object.entries(atual).filter(([e, v]) => !(confirmadas.has(e as CompanyKey) && enviado[e as CompanyKey] === v))) as Partial<Record<CompanyKey, string>>;
 }
 
 // ---------------------------------------------------------------- a lista depois de salvar

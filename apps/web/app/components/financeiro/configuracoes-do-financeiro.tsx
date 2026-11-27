@@ -197,6 +197,7 @@ function Preferencias({ dados, empresa, pode, aoSalvar }: { dados: Cadastros; em
     evento.preventDefault();
     if (mudancas.length === 0) return;
     setEnviando(true); setFalha(null);
+    const enviado = rascunho;
     const salvas: CategoriaEditada[] = [];
     for (const m of mudancas) {
       const r = await enviar<CategoriaEditada>(`/api/financeiro/categorias/${m.id}`, "PATCH", m.corpo);
@@ -204,7 +205,7 @@ function Preferencias({ dados, empresa, pode, aoSalvar }: { dados: Cadastros; em
       salvas.push(r.dados);
     }
     setEnviando(false);
-    setRascunho((r) => rascunhoSemAsSalvas(r, salvas));
+    setRascunho((r) => rascunhoSemAsSalvas(r, enviado, salvas));
     if (salvas.length > 0) aoSalvar(salvas, salvas.length === mudancas.length ? "Preferências salvas." : "Parte das preferências foi salva.");
   }
 
@@ -219,7 +220,7 @@ function Preferencias({ dados, empresa, pode, aoSalvar }: { dados: Cadastros; em
         ];
         return <section key={e} className={styles.cartaoDaEmpresa} aria-labelledby={`pref-${e}`}>
           <h3 id={`pref-${e}`}><EmpresaComPonto empresa={e} /></h3>
-          {pode ? <CampoDeMenu label="Categoria das tarifas bancárias" options={opcoes} value={escolhas[e]} icon={<Tag />} placeholder="Nenhuma"
+          {pode ? <CampoDeMenu label="Categoria das tarifas bancárias" options={opcoes} value={escolhas[e]} icon={<Tag />} placeholder="Nenhuma" disabled={enviando}
             hint={'Usada no "Criar tarifa" da Conciliação. Só despesas ativas.'} onChange={(v) => { setRascunho((x) => ({ ...x, [e]: v })); setFalha(null); }} />
             : <div className={styles.leitura}><span>Categoria das tarifas bancárias</span><strong>{atual ? `${atual.codigo} · ${atual.nome}` : "Nenhuma"}</strong><small>Usada no &quot;Criar tarifa&quot; da Conciliação.</small></div>}
         </section>;
