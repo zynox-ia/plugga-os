@@ -8,6 +8,8 @@ export default defineConfig({
   workers: 1,
   forbidOnly: !!process.env.CI,
   retries: 0,
+  // O modo dev compila cada rota na primeira chamada (5,5 s num runner lento); sem retries, o expect espera por ela.
+  expect: { timeout: 15_000 },
   reporter: "list",
   use: {
     baseURL: "http://localhost:3220",
