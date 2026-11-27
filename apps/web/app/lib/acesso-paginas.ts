@@ -2,7 +2,7 @@ import { alcancaPlataforma, alcancaTela, papelDoAcesso, telasPorDepartamento, ty
 
 import { integracoesParaAcesso } from "./integracoes.ts";
 import { podeVerCompras } from "./papel-em-compras.ts";
-import { engenhariaHabilitado, financeiroHabilitado, type AmbienteDosRecursos } from "./recursos.ts";
+import { engenhariaHabilitado, financeiroHabilitado, prototipoDoCentroDeCustoHabilitado, type AmbienteDosRecursos } from "./recursos.ts";
 
 /**
  * Lançamentos (e a Visão geral) do Financeiro juntam saídas (`financeiro.pagar`)
@@ -33,6 +33,8 @@ const paginas: ReadonlyArray<readonly [string, Tela | readonly Tela[]]> = [
   // Notas fiscais (PLU-361) é a tela Fiscal; Relatórios tem a tela dele (PLU-360).
   ["/financeiro/notas-fiscais", "financeiro.fiscal"],
   ["/financeiro/relatorios", "financeiro.relatorios"],
+  // Centro de custo (PLU-362): o protótipo abre com qualquer tela do Financeiro; a tela própria vem com a API.
+  ["/financeiro/centro-de-custo", telasPorDepartamento.financeiro],
   // Tarefas abre com qualquer tela do Financeiro; a API filtra o que cada um vê.
   ["/financeiro/tarefas", telasPorDepartamento.financeiro],
   ["/engenharia/ordens-de-servico", TELAS_DAS_ORDENS_DE_SERVICO],
@@ -86,7 +88,12 @@ function doFinanceiro(segmentos: string[]): boolean {
  * como segunda barreira (PLU-336).
  */
 export function fechadaPeloPortaoDoFinanceiro(pathname: string, ambiente?: AmbienteDosRecursos): boolean {
-  return segmentosCanonicos(pathname)[0] === "financeiro" && !financeiroHabilitado(ambiente);
+  const segmentos = segmentosCanonicos(pathname);
+  if (segmentos[0] !== "financeiro") return false;
+  if (!financeiroHabilitado(ambiente)) return true;
+  // O protótipo do Centro de custo (PLU-362), com dados de exemplo, não existe fora do desenvolvimento,
+  // nem com o Financeiro ligado pela variável (o build da CI): 404 do middleware.
+  return segmentos[1] === "centro-de-custo" && !prototipoDoCentroDeCustoHabilitado(ambiente);
 }
 
 /**

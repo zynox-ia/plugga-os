@@ -29,6 +29,22 @@ export function financeiroHabilitado(
 }
 
 /**
+ * Protótipo visual do Centro de custo (PLU-362), com dados de exemplo: só no
+ * desenvolvimento e nos testes. Não tem variável que o ligue: num build de
+ * produção (inclusive o da CI, com o Financeiro ligado) a rota responde 404 e o
+ * item do menu fica em breve, para nenhum dado de exemplo chegar a alguém.
+ * Sem `NODE_ENV` conhecido, fica desligado (falha fechada).
+ */
+export function prototipoDoCentroDeCustoHabilitado(ambiente: Pick<AmbienteDosRecursos, "NODE_ENV"> = { NODE_ENV: process.env.NODE_ENV }): boolean {
+  return ambiente.NODE_ENV === "development" || ambiente.NODE_ENV === "test";
+}
+
+/** Rota e status do item "Centro de custo" no menu do Financeiro: fechado o protótipo, em breve e sem rota. */
+export function itemDoCentroDeCusto(ambiente?: Pick<AmbienteDosRecursos, "NODE_ENV">): { rota: string; status: "parcial" } | { status: "em-breve" } {
+  return prototipoDoCentroDeCustoHabilitado(ambiente) ? { rota: "/financeiro/centro-de-custo", status: "parcial" } : { status: "em-breve" };
+}
+
+/**
  * Engenharia e Obras (PLU-345 a PLU-350): o mesmo portão do Financeiro, com a
  * variável `NEXT_PUBLIC_ENGENHARIA_HABILITADO` (e `ENGENHARIA_HABILITADO` na API).
  * Desligado, o menu fica em breve e nenhuma página `/engenharia/*` abre: o
