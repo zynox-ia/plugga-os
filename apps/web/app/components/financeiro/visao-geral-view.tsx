@@ -234,7 +234,7 @@ export function VisaoGeralDoFinanceiroView({ hoje, empresa, resumo, alcance, ger
         nota={resumo.aReceber.quantidade === 1 ? "1 cobrança em aberto" : `${resumo.aReceber.quantidade} cobranças em aberto`} /> : null}
       {resumo.aPagar ? <CardDeMetrica rotulo={`A pagar · até ${ate}`} valor={valorEmReais(resumo.aPagar.valor)} icone={<ArrowUpRight />} aoClicar={() => router.push(comEmpresa(FILTRO_DO_CARD.aPagar))}
         nota={`${resumo.aPagar.quantidade === 1 ? "1 conta" : `${resumo.aPagar.quantidade} contas`} · ${resumo.aPagar.paraAprovar} para aprovar`} /> : null}
-      {resumo.saldoProjetado ? <CardDeMetrica rotulo={`Saldo projetado em ${ate}`} valor={valorEmReais(resumo.saldoProjetado.valor)} icone={<Scale />} barra={100}
+      {resumo.saldoProjetado ? <CardDeMetrica rotulo={`Saldo projetado em ${ate}`} valor={valorEmReais(resumo.saldoProjetado.valor)} icone={<Scale />}
         nota={resumo.saldoProjetado.saldoNasContas ? `${valorCurto(resumo.saldoProjetado.saldoNasContas)} hoje nas contas` : "a receber menos a pagar no período"}
         aoClicar={abreConciliacao ? () => router.push(hrefDaConciliacao({ ...periodo, aba: "sugeridos", ...(empresa ? { empresa } : {}) })) : undefined} /> : null}
       <CardDeMetrica rotulo="Vencidos" valor={valorEmReais(resumo.vencidos.valor)} icone={<TriangleAlert />} aoClicar={() => router.push(comEmpresa(FILTRO_DO_CARD.vencidos))}
