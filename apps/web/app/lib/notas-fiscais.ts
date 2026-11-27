@@ -212,7 +212,7 @@ export type CamposDaNota = {
 
 export type CampoDaNota = "empresa" | "numero" | "emitidaEm" | "valor" | "contraparteId" | "lancamento" | "arquivo";
 /** A ordem dos campos no formulário: o foco vai para o primeiro com erro. */
-export const ORDEM_DOS_CAMPOS: readonly CampoDaNota[] = ["empresa", "numero", "emitidaEm", "valor", "contraparteId", "lancamento", "arquivo"];
+export const ORDEM_DOS_CAMPOS: readonly CampoDaNota[] = ["arquivo", "empresa", "numero", "emitidaEm", "valor", "contraparteId", "lancamento"];
 
 const diaLegivel = (dia: string) => dia.split("-").reverse().join("/");
 export const ROTULO_DA_EMPRESA_NA_NOTA: Record<CompanyKey, string> = { plugga: "Plugga", waze: "Waze Energia" };

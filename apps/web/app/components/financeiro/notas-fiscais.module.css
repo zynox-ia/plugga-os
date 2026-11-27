@@ -124,15 +124,21 @@
 /* ---------------------------------------------------------------- formulário */
 
 .tipo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; border: 0; min-width: 0; }
-.tipo legend { margin-bottom: 6px; padding: 0; color: var(--ui-text); font-size: 13px; font-weight: 500; }
-.tipoOpcao { display: flex; align-items: flex-start; gap: 10px; min-width: 0; padding: 12px; border: 1px solid var(--ui-divider); border-radius: var(--radius-lg); background: var(--ui-surface); cursor: pointer; transition: border-color .15s ease, background-color .15s ease; }
-.tipoOpcao:hover { border-color: color-mix(in srgb, var(--ui-primary) 35%, var(--ui-divider)); }
-.tipoOpcao:has(input:checked) { border-color: var(--ui-primary); background: var(--ui-focus-bg); }
+/* O tipo da nota no espírito dos blocos da tela: o rádio fica só para o leitor de tela e o teclado
+   (setas), o ícone de entrada ou saída toma o lugar do círculo. Só a borda tem cor (azul nas
+   entradas, vermelha nas saídas); o escolhido tem borda de 2 px e título em 500, sem fundo colorido. */
+.tipoEntrada { --cor-do-tipo: var(--ui-primary); }
+.tipoSaida { --cor-do-tipo: var(--ui-danger); }
+.tipoOpcao { position: relative; display: flex; align-items: center; gap: 10px; min-width: 0; padding: 12px; border: 1px solid var(--cor-do-tipo, var(--ui-divider)); border-radius: var(--radius-lg); background: var(--ui-surface); cursor: pointer; transition: box-shadow .15s ease; }
+.tipoOpcao:has(input:checked) { box-shadow: inset 0 0 0 1px var(--cor-do-tipo, var(--ui-primary)); }
 .tipoOpcao:has(input:focus-visible) { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
-.tipoOpcao input { flex: none; margin: 2px 0 0; accent-color: var(--ui-primary); }
-.tipoOpcao span { display: grid; gap: 2px; min-width: 0; }
-.tipoOpcao strong { color: var(--ui-text); font-size: 13px; font-weight: 500; }
-.tipoOpcao small { color: var(--ui-muted); font-size: 12px; line-height: 1.4; }
+.tipoIcone { display: grid; flex: none; place-items: center; width: 32px; height: 32px; border-radius: 10px; color: var(--ui-muted); background: var(--ui-subtle); }
+.tipoTexto { display: grid; gap: 2px; min-width: 0; }
+.tipoTexto strong { color: var(--ui-text); font-size: 13px; font-weight: 400; }
+.tipoOpcao:has(input:checked) .tipoTexto strong { font-weight: 500; }
+.tipoTexto small { color: var(--ui-muted); font-size: 12px; line-height: 1.4; }
+.lidoDoXml { display: flex; align-items: center; gap: 6px; margin: -4px 0 0; color: var(--ui-muted); font-size: 12px; }
+.lidoDoXml svg { flex: none; }
 .soltar { padding: 16px; }
 .arquivoEscolhido li[data-invalido="true"] { border-color: var(--ui-danger); }
 

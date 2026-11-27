@@ -180,13 +180,7 @@ export function NotasFiscaisView({ hoje, ladoInicial, opcoes, exemplos }: {
     <section ref={listaRef} id="notas-lista" role="tabpanel" aria-labelledby={`notas-lado-${lado}`} className={styles.conteudo}>
       {vazio ?? <div className={`lista-negocios ${estilosLista.lista} ${estilosLancamentos.lista} ${styles.lista}`}>
         <ShellCard className="table-card lista-negocios-card">
-          <div className="card-heading"><div className={estilosLista.cabecalhoTabela}>
-            <div>
-              <h2>{quantasNotas(resumo.quantidade, lado)}</h2>
-              <span>{valorEmReais(resumo.total)}{resumo.semLancamento ? ` · ${resumo.semLancamento} sem lançamento` : ""}{resumo.semArquivo ? ` · ${resumo.semArquivo} sem arquivo` : ""}</span>
-            </div>
-          </div></div>
-          <div className={`${estilosLista.rolagemTabela} ${styles.rolagem}`} role="region" aria-label={rotulos.lado}>
+          <div className={`${estilosLista.rolagemTabela} ${styles.rolagem}`} role="region" aria-label={`Notas de ${lado === "entrada" ? "entrada" : "saída"}: ${quantasNotas(resumo.quantidade).toLowerCase()}`}>
             <ShellTable caption={`Notas fiscais de ${lado === "entrada" ? "entrada" : "saída"}`}>
               <thead><tr>
                 <th scope="col">Nota</th><th scope="col">{rotulos.contraparte}</th><th scope="col">Valor</th>
