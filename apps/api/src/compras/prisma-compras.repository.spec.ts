@@ -8,6 +8,19 @@ import { PrismaComprasRepository } from "./prisma-compras.repository";
 // Os filtros são puros: montam o `where` sem tocar no banco.
 const repositorio = new PrismaComprasRepository({} as PrismaService, {} as AuditAppender, {} as MovimentosDeEstoque);
 
+describe("detalhe", () => {
+  it("acha a conta a pagar do pedido consultado com o id em maiúsculas (revisão leva 13)", async () => {
+    const ID = "1e7c3a5b-0000-4000-8000-00000000000a";
+    const conta = { id: "c0000000-0000-4000-8000-000000000001", codigo: "CP-0001", etapa: "aprovada", cancelado: false };
+    const tx = { pedidoDeCompra: { findUnique: async () => ({ id: ID, clientId: null }) } };
+    const prisma = { comContexto: (fazer: (t: unknown) => Promise<unknown>) => fazer(tx) } as unknown as PrismaService;
+    // O Financeiro devolve as contas pelo id do banco (minúsculas).
+    const contaDaCompra = { criarNaAprovacao: async () => null, cancelarComOPedido: async () => undefined, contasDosPedidos: async () => new Map([[ID, conta]]) };
+    const comConta = new PrismaComprasRepository(prisma, {} as AuditAppender, {} as MovimentosDeEstoque, contaDaCompra as never);
+    expect((await comConta.detalhe(ID.toUpperCase())).contaAPagar).toEqual(conta);
+  });
+});
+
 describe("filtroDaLista", () => {
   it("etapa e situação se somam, não se sobrescrevem", () => {
     expect(repositorio.filtroDaLista({ etapa: "cotacoes", situacao: "em_andamento" })).toEqual({

@@ -148,7 +148,7 @@ export class PrismaComprasRepository {
       this.contaDaCompra.contasDosPedidos(tx, [id]),
     ]));
     if (!linha) throw new NaoEncontrado("Pedido de compra não encontrado.");
-    return { linha, clientes: await this.nomesDeClientes(linha.clientId ? [linha.clientId] : []), contaAPagar: contas.get(id) ?? null };
+    return { linha, clientes: await this.nomesDeClientes(linha.clientId ? [linha.clientId] : []), contaAPagar: contas.get(linha.id) ?? null };
   }
 
   /** Estado mínimo para decidir acesso a arquivo e etapa, sem o detalhe inteiro. */
@@ -532,7 +532,7 @@ export class PrismaComprasRepository {
   }
 
   private async garantirPessoas(principal: AuthPrincipal, ids: (string | null)[], tx?: Prisma.TransactionClient): Promise<void> {
-    const alvos = [...new Set(ids.filter((id): id is string => id !== null))];
+    const alvos = [...new Set(ids.filter((id): id is string => id !== null).map(idCanonico))];
     if (alvos.length === 0) return;
     const consultar = (cliente: Prisma.TransactionClient) => cliente.user.count({ where: { AND: [{ id: { in: alvos } }, this.elegiveis(principal)] } });
     const encontrados = tx ? await consultar(tx) : await this.prisma.comContexto(consultar);
