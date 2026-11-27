@@ -80,16 +80,37 @@ function vaiAoInicio(resposta: NextResponse): boolean {
   return local !== null && new URL(local).pathname === "/";
 }
 
-/** O portão do Financeiro lê o NODE_ENV (lib/recursos.ts): "production" sem a variável é fechado. */
-async function comNodeEnv<T>(valor: string, fazer: () => Promise<T>): Promise<T> {
+type Portao = { NODE_ENV: string; NEXT_PUBLIC_FINANCEIRO_HABILITADO: string | undefined };
+/** Portão fechado: produção, com a variável desligada ou ausente. */
+const FECHADOS: readonly Portao[] = [
+  { NODE_ENV: "production", NEXT_PUBLIC_FINANCEIRO_HABILITADO: undefined },
+  { NODE_ENV: "production", NEXT_PUBLIC_FINANCEIRO_HABILITADO: "false" },
+];
+/** Portão aberto: desenvolvimento, ou produção com a variável (a CI liga `true`). */
+const ABERTOS: readonly Portao[] = [
+  { NODE_ENV: "development", NEXT_PUBLIC_FINANCEIRO_HABILITADO: undefined },
+  { NODE_ENV: "production", NEXT_PUBLIC_FINANCEIRO_HABILITADO: "true" },
+];
+
+/**
+ * O portão do Financeiro lê o NODE_ENV e a NEXT_PUBLIC_FINANCEIRO_HABILITADO
+ * (lib/recursos.ts): cada cenário fixa as duas e as devolve, sem depender do
+ * ambiente em que o teste roda (a CI liga a variável).
+ */
+async function comPortao<T>(portao: Portao, fazer: () => Promise<T>): Promise<T> {
   const ambiente = process.env as Record<string, string | undefined>;
-  const anterior = ambiente.NODE_ENV;
-  ambiente.NODE_ENV = valor;
+  const anteriores = { NODE_ENV: ambiente.NODE_ENV, NEXT_PUBLIC_FINANCEIRO_HABILITADO: ambiente.NEXT_PUBLIC_FINANCEIRO_HABILITADO };
+  const fixar = (valores: Record<string, string | undefined>) => {
+    for (const [chave, valor] of Object.entries(valores)) {
+      if (valor === undefined) delete ambiente[chave];
+      else ambiente[chave] = valor;
+    }
+  };
+  fixar(portao);
   try {
     return await fazer();
   } finally {
-    if (anterior === undefined) delete ambiente.NODE_ENV;
-    else ambiente.NODE_ENV = anterior;
+    fixar(anteriores);
   }
 }
 
@@ -156,38 +177,52 @@ describe("middleware: Financeiro fechado responde 404 (PLU-336)", () => {
   const SEM_FINANCEIRO = sessionUserSchema.parse({ ...USUARIO, acesso: { plataforma: null, departamentos: [{ departamento: "suprimentos", nivel: "membro" }] } });
 
   it("logado, com o portão fechado: segue até o layout do Financeiro, que responde 404, em vez de ir ao início", async () => {
-    // O NEXT_PUBLIC_FINANCEIRO_HABILITADO deste processo não pode ligar o portão no teste.
-    assert.notEqual(process.env.NEXT_PUBLIC_FINANCEIRO_HABILITADO, "true");
-    await comNodeEnv("production", async () => {
-      for (const [usuario, caminho] of [[USUARIO, "/financeiro/lancamentos"], [USUARIO, "/financeiro"], [SEM_FINANCEIRO, "/financeiro/conciliacao"]] as const) {
-        apiResponde(Response.json(usuario));
-        const resposta = await middleware(pedir(caminho));
-        assert.equal(vaiAoInicio(resposta), false, caminho);
-        assert.deepEqual(resultado(resposta), { tipo: "seguir" }, caminho);
-      }
-    });
+    for (const portao of FECHADOS) {
+      await comPortao(portao, async () => {
+        for (const [usuario, caminho] of [[USUARIO, "/financeiro/lancamentos"], [USUARIO, "/financeiro"], [SEM_FINANCEIRO, "/financeiro/conciliacao"]] as const) {
+          apiResponde(Response.json(usuario));
+          const resposta = await middleware(pedir(caminho));
+          const cenario = `${caminho} ${JSON.stringify(portao)}`;
+          assert.equal(vaiAoInicio(resposta), false, cenario);
+          assert.deepEqual(resultado(resposta), { tipo: "seguir" }, cenario);
+        }
+      });
+    }
   });
 
   it("sem sessão, com o portão fechado, continua indo ao login", async () => {
-    await comNodeEnv("production", async () => {
-      apiResponde(new Response(null, { status: 401 }));
-      assert.deepEqual(resultado(await middleware(pedir("/financeiro/lancamentos"))), { tipo: "login", redirectTo: "/financeiro/lancamentos" });
-    });
+    for (const portao of FECHADOS) {
+      await comPortao(portao, async () => {
+        apiResponde(new Response(null, { status: 401 }));
+        assert.deepEqual(resultado(await middleware(pedir("/financeiro/lancamentos"))), { tipo: "login", redirectTo: "/financeiro/lancamentos" }, JSON.stringify(portao));
+      });
+    }
   });
 
   it("com o portão aberto, quem não tem acesso ao Financeiro continua indo ao início", async () => {
-    await comNodeEnv("development", async () => {
-      apiResponde(Response.json(SEM_FINANCEIRO));
-      assert.equal(vaiAoInicio(await middleware(pedir("/financeiro/lancamentos"))), true);
-      apiResponde(Response.json(USUARIO));
-      assert.deepEqual(resultado(await middleware(pedir("/financeiro/lancamentos"))), { tipo: "seguir" });
-    });
+    for (const portao of ABERTOS) {
+      await comPortao(portao, async () => {
+        apiResponde(Response.json(SEM_FINANCEIRO));
+        assert.equal(vaiAoInicio(await middleware(pedir("/financeiro/lancamentos"))), true, JSON.stringify(portao));
+        apiResponde(Response.json(USUARIO));
+        assert.deepEqual(resultado(await middleware(pedir("/financeiro/lancamentos"))), { tipo: "seguir" }, JSON.stringify(portao));
+      });
+    }
   });
 
   it("o portão fechado não abre outras páginas sem acesso", async () => {
-    await comNodeEnv("production", async () => {
-      apiResponde(Response.json(SEM_FINANCEIRO));
-      assert.equal(vaiAoInicio(await middleware(pedir("/clientes"))), true);
-    });
+    for (const portao of FECHADOS) {
+      await comPortao(portao, async () => {
+        apiResponde(Response.json(SEM_FINANCEIRO));
+        assert.equal(vaiAoInicio(await middleware(pedir("/clientes"))), true, JSON.stringify(portao));
+      });
+    }
+  });
+
+  it("cada cenário devolve o ambiente como estava", async () => {
+    const antes = { NODE_ENV: process.env.NODE_ENV, flag: process.env.NEXT_PUBLIC_FINANCEIRO_HABILITADO };
+    await comPortao(FECHADOS[0]!, async () => {});
+    await comPortao(ABERTOS[1]!, async () => { throw new Error("falha no meio"); }).catch(() => {});
+    assert.deepEqual({ NODE_ENV: process.env.NODE_ENV, flag: process.env.NEXT_PUBLIC_FINANCEIRO_HABILITADO }, antes);
   });
 });
