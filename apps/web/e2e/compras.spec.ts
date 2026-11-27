@@ -111,6 +111,11 @@ test("o gerente do Financeiro aprova e o membro do Financeiro paga", async ({ pa
   const pedido = await json(await page.request.post("/api/suprimentos/compras/pedidos", { headers: { origin }, data: { empresa: "plugga", titulo: `Aprovação ${marca} ${sufixo} (sintético)`, destino: "interno", itens: [{ descricao: "Disjuntor de teste", quantidade: "3", unidade: "un" }], prazoEntregaDesejado: "2030-12-10" } }));
   const acao = (corpo: object) => page.request.post(`/api/suprimentos/compras/pedidos/${pedido.id}/acoes`, { headers: { origin }, data: corpo }).then(json);
   await acao({ acao: "iniciar_analise" });
+  // Na análise, quem é do Financeiro acompanha, sem os botões de decisão (PLU-328).
+  const naAnalise = await comoFinanceiro("gerente.financeiro@plugga.local", "203.0.113.229");
+  await expect(ficha(naAnalise.pagina).getByText("Quem decide é a equipe de Compras.")).toBeVisible();
+  await expect(ficha(naAnalise.pagina).getByRole("button", { name: /Sim, atender pelo estoque|Não, precisa comprar/ })).toHaveCount(0);
+  await naAnalise.contexto.close();
   await acao({ acao: "decidir_estoque", origem: "aquisicao" });
   const cotado = await json(await page.request.post(`/api/suprimentos/compras/pedidos/${pedido.id}/cotacoes`, { headers: { origin }, multipart: { fornecedorId: fornecedor.id, valor: "300.00", arquivo: PDF } }));
   await acao({ acao: "selecionar_cotacao", cotacaoId: cotado.cotacoes[0].id });
@@ -139,6 +144,17 @@ test("o gerente do Financeiro aprova e o membro do Financeiro paga", async ({ pa
   await ficha(gerente.pagina).getByRole("button", { name: "Aprovar compra" }).click();
   await expect(ficha(gerente.pagina).locator(".aviso--sucesso")).toHaveText("Compra aprovada.");
   await gerente.contexto.close();
+
+  // Quem é só de Compras acompanha o pagamento, sem o seletor da forma (PLU-328).
+  const comprador = await browser.newContext({ baseURL, storageState: { cookies: [], origins: [] }, extraHTTPHeaders: { "x-forwarded-for": "203.0.113.223" } });
+  const doComprador = await comprador.newPage();
+  await bloquearTerceiros(doComprador);
+  const entrou = await doComprador.request.post("/api/auth/login", { headers: { origin }, data: { email: "compras.plugga@plugga.local", password: process.env.E2E_SAMPLE_PASSWORD ?? process.env.SEED_ADMIN_PASSWORD ?? "local_only_change_me" } });
+  expect(entrou.ok(), "login de compras.plugga@plugga.local (precisa de SEED_SAMPLE_TEAM=true no seed)").toBeTruthy();
+  await doComprador.goto(`/suprimentos/compras?pedido=${pedido.id}`);
+  await expect(ficha(doComprador).getByText("Quem registra o pagamento é o Financeiro.")).toBeVisible();
+  await expect(ficha(doComprador).getByRole("radio", { name: "PIX" })).toHaveCount(0);
+  await comprador.close();
 
   const membro = await comoFinanceiro("financeiro.membro.e2e@plugga.local", "203.0.113.230");
   await expect(ficha(membro.pagina).getByRole("button", { name: "Aprovar compra" })).toHaveCount(0);
