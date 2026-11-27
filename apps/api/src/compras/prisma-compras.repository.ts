@@ -502,7 +502,11 @@ export class PrismaComprasRepository {
       SELECT id, company_id, ativo, codigo, unidade FROM public.itens_de_estoque WHERE id = ANY(${alvos}::uuid[]) ORDER BY id FOR SHARE`;
     const validos = travados.filter((item) => itemIndisponivelParaOPedido({ companyId: item.company_id, ativo: item.ativo }, { empresa, exigirAtivo: true }) === null);
     if (validos.length !== alvos.length) {
-      throw new RequisicaoInvalida("Item de estoque não encontrado, inativo ou de outra empresa.", [{ campo: "itemDeEstoqueId", problema: "Escolha um item ativo do estoque da empresa do pedido." }]);
+      // A recusa aponta cada linha (pelo índice em `ids`, a ordem do envio), além do campo genérico.
+      const aceitos = new Set(validos.map((item) => idCanonico(item.id)));
+      const problema = "Escolha um item ativo do estoque da empresa do pedido.";
+      const linhas = ids.flatMap((id, n) => (id !== null && !aceitos.has(idCanonico(id)) ? [{ campo: `itens.${n}.itemDeEstoqueId`, problema }] : []));
+      throw new RequisicaoInvalida("Item de estoque não encontrado, inativo ou de outra empresa.", [{ campo: "itemDeEstoqueId", problema }, ...linhas]);
     }
     return new Map(validos.map((item) => [idCanonico(item.id), { codigo: item.codigo, unidade: item.unidade }]));
   }

@@ -651,6 +651,15 @@ describe.skipIf(!HABILITADO)("estoque: operador só com a tela de Estoque, no lo
       }
     }, PRAZO_MS);
 
+    it("item inativo no vínculo: a recusa aponta a linha pelo índice do envio (revisão leva 15)", async () => {
+      const ativo = await criarItem();
+      const inativo = await criarItem();
+      await como("estoque", () => estoque.mudarSituacao(inativo, false, principal("estoque")));
+      await expect(pedidoComUnidades([{ quantidade: "1" }, { quantidade: "2", itemDeEstoqueId: ativo }, { quantidade: "3", itemDeEstoqueId: inativo }])).rejects.toMatchObject({
+        detalhes: [{ campo: "itemDeEstoqueId", problema: expect.any(String) }, { campo: "itens.2.itemDeEstoqueId", problema: expect.any(String) }],
+      });
+    }, PRAZO_MS);
+
     it("o vínculo com o id do item em maiúsculas passa pela mesma conferência de unidade (revisão leva 9)", async () => {
       const item = await criarItem();
       const maiusculo = item.toUpperCase();
