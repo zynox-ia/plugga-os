@@ -20,8 +20,9 @@ import { lerFiltrosDosProjetos, ROTA_DO_CENTRO_DE_CUSTO } from "../../lib/protot
  */
 export default async function CentroDeCustoPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   if (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test") {
-    const [sessao, parametros, { clientesDeExemplo, PROJETOS_DE_EXEMPLO }] = await Promise.all([
-      exigirPagina(ROTA_DO_CENTRO_DE_CUSTO),
+    // A guarda vem antes de qualquer leitura, inclusive a dos exemplos.
+    const sessao = await exigirPagina(ROTA_DO_CENTRO_DE_CUSTO);
+    const [parametros, { clientesDeExemplo, PROJETOS_DE_EXEMPLO }] = await Promise.all([
       searchParams,
       import("../../lib/prototipo-centro-de-custo-exemplos"),
     ]);

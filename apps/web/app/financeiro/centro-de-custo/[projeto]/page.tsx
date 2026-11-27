@@ -15,10 +15,9 @@ import { hrefDoProjeto } from "../../../lib/prototipo-centro-de-custo";
 export default async function ProjetoDoCentroDeCustoPage({ params }: { params: Promise<{ projeto: string }> }) {
   if (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test") {
     const { projeto: id } = await params;
-    const [sessao, { PROJETOS_DE_EXEMPLO, projetoDeExemplo }] = await Promise.all([
-      exigirPagina(hrefDoProjeto(id)),
-      import("../../../lib/prototipo-centro-de-custo-exemplos"),
-    ]);
+    // A guarda vem antes de qualquer leitura, inclusive a dos exemplos.
+    const sessao = await exigirPagina(hrefDoProjeto(id));
+    const { PROJETOS_DE_EXEMPLO, projetoDeExemplo } = await import("../../../lib/prototipo-centro-de-custo-exemplos");
     const projeto = projetoDeExemplo(id);
     if (!projeto) notFound();
     const outros = PROJETOS_DE_EXEMPLO.filter((p) => p.cliente.id === projeto.cliente.id && p.id !== projeto.id);
