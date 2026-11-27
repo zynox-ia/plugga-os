@@ -46,11 +46,20 @@ const paginas: ReadonlyArray<readonly [string, Tela | readonly Tela[]]> = [
   ["/engenharia/obras", "engenharia-obras.obras"],
 ];
 
+/**
+ * Página do Financeiro com o portão fechado (lib/recursos.ts): não existe para
+ * ninguém. O middleware a deixa seguir para o layout do Financeiro responder
+ * 404, em vez de mandar ao início como faz com quem não tem acesso (PLU-336).
+ */
+export function fechadaPeloPortaoDoFinanceiro(pathname: string, ambiente?: AmbienteDosRecursos): boolean {
+  return (pathname === "/financeiro" || pathname.startsWith("/financeiro/")) && !financeiroHabilitado(ambiente);
+}
+
 /** `ambiente` só existe para o teste do portão; a tela usa o do build. */
 export function podeAbrirPagina(acesso: Acesso, pathname: string, ambiente?: AmbienteDosRecursos): boolean {
   if (["/", "/configuracoes", "/agentes-ia", "/auth/google/complete"].includes(pathname)) return true;
-  // Portão do Financeiro em construção: desligado, nenhuma página dele abre (lib/recursos.ts).
-  if ((pathname === "/financeiro" || pathname.startsWith("/financeiro/")) && !financeiroHabilitado(ambiente)) return false;
+  // Portão do Financeiro em construção: desligado, nenhuma página dele abre.
+  if (fechadaPeloPortaoDoFinanceiro(pathname, ambiente)) return false;
   // Portão da Engenharia em construção, igual ao do Financeiro.
   if ((pathname === "/engenharia" || pathname.startsWith("/engenharia/")) && !engenhariaHabilitado(ambiente)) return false;
   if (pathname === "/administracao") return papelDoAcesso(acesso) !== "membro";

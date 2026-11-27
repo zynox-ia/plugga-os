@@ -1,5 +1,6 @@
+import type { SessionUser } from "@plugga/shared";
 import { NextResponse, type NextRequest } from "next/server";
-import { podeAbrirPagina } from "./app/lib/acesso-paginas";
+import { fechadaPeloPortaoDoFinanceiro, podeAbrirPagina } from "./app/lib/acesso-paginas";
 
 import { buildContentSecurityPolicy } from "./app/lib/content-security-policy";
 import { apiBaseUrl } from "./app/lib/env-runtime";
@@ -128,7 +129,9 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     // /auth/me respondeu 200 fora do contrato (web e API em versões diferentes?): não desloga, mas avisa no log.
     console.warn("middleware: /auth/me respondeu fora do contrato; mostrando API indisponível");
   }
-  const decisao = decidirPagina(pathname, leitura, (usuario) => podeAbrirPagina(usuario.acesso, pathname), request.nextUrl.search);
+  // Com o Financeiro fechado, a página segue (logado) para o layout dele responder 404, como se não existisse (PLU-336).
+  const podeAbrir = (usuario: SessionUser) => fechadaPeloPortaoDoFinanceiro(pathname) || podeAbrirPagina(usuario.acesso, pathname);
+  const decisao = decidirPagina(pathname, leitura, podeAbrir, request.nextUrl.search);
 
   switch (decisao.acao) {
     case "inicio":

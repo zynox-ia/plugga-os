@@ -74,6 +74,25 @@ function resultado(resposta: NextResponse): { tipo: "aviso" | "login" | "seguir"
   return resposta.headers.get("x-middleware-next") ? { tipo: "seguir" } : { tipo: "outro" };
 }
 
+/** O redirect para a página inicial (sem acesso à página, ou já logado no /login). */
+function vaiAoInicio(resposta: NextResponse): boolean {
+  const local = resposta.headers.get("location");
+  return local !== null && new URL(local).pathname === "/";
+}
+
+/** O portão do Financeiro lê o NODE_ENV (lib/recursos.ts): "production" sem a variável é fechado. */
+async function comNodeEnv<T>(valor: string, fazer: () => Promise<T>): Promise<T> {
+  const ambiente = process.env as Record<string, string | undefined>;
+  const anterior = ambiente.NODE_ENV;
+  ambiente.NODE_ENV = valor;
+  try {
+    return await fazer();
+  } finally {
+    if (anterior === undefined) delete ambiente.NODE_ENV;
+    else ambiente.NODE_ENV = anterior;
+  }
+}
+
 describe("middleware: API fora do ar não desloga (PLU-343)", () => {
   it("200 com a sessão: abre a página", async () => {
     apiResponde(Response.json(USUARIO));
@@ -111,5 +130,45 @@ describe("middleware: API fora do ar não desloga (PLU-343)", () => {
     assert.deepEqual(resultado(await middleware(pedir(FICHA))), { tipo: "aviso" });
     apiResponde(Response.json(USUARIO));
     assert.deepEqual(resultado(await middleware(pedir(FICHA))), { tipo: "seguir" });
+  });
+});
+
+describe("middleware: Financeiro fechado responde 404 (PLU-336)", () => {
+  const SEM_FINANCEIRO = sessionUserSchema.parse({ ...USUARIO, acesso: { plataforma: null, departamentos: [{ departamento: "suprimentos", nivel: "membro" }] } });
+
+  it("logado, com o portão fechado: segue até o layout do Financeiro, que responde 404, em vez de ir ao início", async () => {
+    // O NEXT_PUBLIC_FINANCEIRO_HABILITADO deste processo não pode ligar o portão no teste.
+    assert.notEqual(process.env.NEXT_PUBLIC_FINANCEIRO_HABILITADO, "true");
+    await comNodeEnv("production", async () => {
+      for (const [usuario, caminho] of [[USUARIO, "/financeiro/lancamentos"], [USUARIO, "/financeiro"], [SEM_FINANCEIRO, "/financeiro/conciliacao"]] as const) {
+        apiResponde(Response.json(usuario));
+        const resposta = await middleware(pedir(caminho));
+        assert.equal(vaiAoInicio(resposta), false, caminho);
+        assert.deepEqual(resultado(resposta), { tipo: "seguir" }, caminho);
+      }
+    });
+  });
+
+  it("sem sessão, com o portão fechado, continua indo ao login", async () => {
+    await comNodeEnv("production", async () => {
+      apiResponde(new Response(null, { status: 401 }));
+      assert.deepEqual(resultado(await middleware(pedir("/financeiro/lancamentos"))), { tipo: "login", redirectTo: "/financeiro/lancamentos" });
+    });
+  });
+
+  it("com o portão aberto, quem não tem acesso ao Financeiro continua indo ao início", async () => {
+    await comNodeEnv("development", async () => {
+      apiResponde(Response.json(SEM_FINANCEIRO));
+      assert.equal(vaiAoInicio(await middleware(pedir("/financeiro/lancamentos"))), true);
+      apiResponde(Response.json(USUARIO));
+      assert.deepEqual(resultado(await middleware(pedir("/financeiro/lancamentos"))), { tipo: "seguir" });
+    });
+  });
+
+  it("o portão fechado não abre outras páginas sem acesso", async () => {
+    await comNodeEnv("production", async () => {
+      apiResponde(Response.json(SEM_FINANCEIRO));
+      assert.equal(vaiAoInicio(await middleware(pedir("/clientes"))), true);
+    });
   });
 });
