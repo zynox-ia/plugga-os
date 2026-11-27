@@ -1,6 +1,7 @@
 import {
   alcancaDepartamento,
   alcancaTela,
+  companyKeys,
   type Acesso,
   type CategoriaEditada,
   type CategoriaFinanceira,
@@ -273,6 +274,20 @@ export function mudancasDasTarifas(categorias: readonly CategoriaFinanceira[], e
     mudancas.push(escolhida ? { id: escolhida, corpo: { tarifaBancaria: true } } : { id: atual, corpo: { tarifaBancaria: false } });
   }
   return mudancas;
+}
+
+/** O que as Preferências mostram por empresa: a escolha ainda não salva ou, sem ela, a marca atual ("" é nenhuma). */
+export function escolhasDasTarifas(categorias: readonly CategoriaFinanceira[], rascunho: Partial<Record<CompanyKey, string>>): Record<CompanyKey, string> {
+  return Object.fromEntries(companyKeys.map((e) => [e, rascunho[e] ?? categoriaDasTarifas(categorias, e)?.id ?? ""])) as Record<CompanyKey, string>;
+}
+
+/**
+ * O rascunho sem as empresas cujo `PATCH` voltou: a que falhou continua pendente, com
+ * a escolha de quem usa, para tentar de novo. A empresa vem da categoria salva.
+ */
+export function rascunhoSemAsSalvas(rascunho: Partial<Record<CompanyKey, string>>, salvas: readonly CategoriaFinanceira[]): Partial<Record<CompanyKey, string>> {
+  const confirmadas = new Set(salvas.map((c) => c.empresa));
+  return Object.fromEntries(Object.entries(rascunho).filter(([e]) => !confirmadas.has(e as CompanyKey))) as Partial<Record<CompanyKey, string>>;
 }
 
 // ---------------------------------------------------------------- a lista depois de salvar

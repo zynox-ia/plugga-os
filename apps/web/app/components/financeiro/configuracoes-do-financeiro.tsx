@@ -5,7 +5,9 @@ import { ArrowDownLeft, ArrowUpRight, Building2, Landmark, Pencil, Plus, Save, S
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 
-import { categoriaDasTarifas, comCategoriaSalva, comContaSalva, mudancasDasTarifas, opcoesDasTarifas, podeCadastrarNoFinanceiro } from "../../lib/cadastros-do-financeiro";
+import {
+  categoriaDasTarifas, comCategoriaSalva, comContaSalva, escolhasDasTarifas, mudancasDasTarifas, opcoesDasTarifas, podeCadastrarNoFinanceiro, rascunhoSemAsSalvas,
+} from "../../lib/cadastros-do-financeiro";
 import { enviar } from "../../lib/clientes";
 import { ROTULO_DA_EMPRESA, valorEmReais } from "../../lib/compras";
 import { categoriasAgrupadas, contagemDasCategorias, contasDaTela, detalheDaConta, saldoDaConta, type AbaDasConfiguracoes } from "../../lib/configuracoes-do-financeiro";
@@ -89,7 +91,7 @@ export function ConfiguracoesDoFinanceiro({ opcoes, aoFechar }: { opcoes: Opcoes
           aoSalvar={(salva, texto) => void salvo((d) => ({ ...d, contasCorrentes: comContaSalva(d.contasCorrentes, salva) }), texto)} />
           : aba === "categorias" ? <Categorias dados={dados} empresa={filtroDeEmpresa} busca={busca} aoBuscar={setBusca} pode={pode}
             aoSalvar={(salva, texto) => void salvo((d) => ({ ...d, categorias: comCategoriaSalva(d.categorias, salva) }), texto)} />
-          : <Preferencias key={Object.values(marcasDasTarifas(dados.categorias)).join("|")} dados={dados} empresa={filtroDeEmpresa} pode={pode}
+          : <Preferencias dados={dados} empresa={filtroDeEmpresa} pode={pode}
             aoSalvar={(salvas, texto) => void salvo((d) => ({ ...d, categorias: salvas.reduce(comCategoriaSalva, d.categorias) }), texto)} />}
       </section>
     </div>
@@ -178,20 +180,18 @@ function Categorias({ dados, empresa, busca, aoBuscar, pode, aoSalvar }: {
   </>;
 }
 
-/** A categoria das tarifas de cada empresa, por id ("" é nenhuma). */
-const marcasDasTarifas = (categorias: readonly CategoriaFinanceira[]) =>
-  Object.fromEntries(EMPRESAS.map((e) => [e, categoriaDasTarifas(categorias, e)?.id ?? ""])) as Record<CompanyKey, string>;
-
 /**
  * Preferências por empresa. Nesta entrega, a categoria das tarifas bancárias (a do "Criar
- * tarifa" da Conciliação). O formulário remonta (pela `key`) quando a marca muda fora dele.
+ * tarifa" da Conciliação). O rascunho guarda só o que ainda não foi confirmado: se uma empresa
+ * salva e a outra falha, o erro e a escolha pendente ficam na tela para tentar de novo.
  */
 function Preferencias({ dados, empresa, pode, aoSalvar }: { dados: Cadastros; empresa: CompanyKey | null; pode: boolean; aoSalvar: (salvas: CategoriaEditada[], aviso: string) => void }) {
   const visiveis = EMPRESAS.filter((e) => !empresa || e === empresa);
-  const [escolhas, setEscolhas] = useState<Record<CompanyKey, string>>(() => marcasDasTarifas(dados.categorias));
+  const [rascunho, setRascunho] = useState<Partial<Record<CompanyKey, string>>>({});
+  const escolhas = escolhasDasTarifas(dados.categorias, rascunho);
   const [falha, setFalha] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
-  const mudancas = mudancasDasTarifas(dados.categorias, escolhas);
+  const mudancas = mudancasDasTarifas(dados.categorias, rascunho);
 
   async function salvar(evento: FormEvent) {
     evento.preventDefault();
@@ -204,6 +204,7 @@ function Preferencias({ dados, empresa, pode, aoSalvar }: { dados: Cadastros; em
       salvas.push(r.dados);
     }
     setEnviando(false);
+    setRascunho((r) => rascunhoSemAsSalvas(r, salvas));
     if (salvas.length > 0) aoSalvar(salvas, salvas.length === mudancas.length ? "Preferências salvas." : "Parte das preferências foi salva.");
   }
 
@@ -219,7 +220,7 @@ function Preferencias({ dados, empresa, pode, aoSalvar }: { dados: Cadastros; em
         return <section key={e} className={styles.cartaoDaEmpresa} aria-labelledby={`pref-${e}`}>
           <h3 id={`pref-${e}`}><EmpresaComPonto empresa={e} /></h3>
           {pode ? <CampoDeMenu label="Categoria das tarifas bancárias" options={opcoes} value={escolhas[e]} icon={<Tag />} placeholder="Nenhuma"
-            hint={'Usada no "Criar tarifa" da Conciliação. Só despesas ativas.'} onChange={(v) => setEscolhas((x) => ({ ...x, [e]: v }))} />
+            hint={'Usada no "Criar tarifa" da Conciliação. Só despesas ativas.'} onChange={(v) => { setRascunho((x) => ({ ...x, [e]: v })); setFalha(null); }} />
             : <div className={styles.leitura}><span>Categoria das tarifas bancárias</span><strong>{atual ? `${atual.codigo} · ${atual.nome}` : "Nenhuma"}</strong><small>Usada no &quot;Criar tarifa&quot; da Conciliação.</small></div>}
         </section>;
       })}

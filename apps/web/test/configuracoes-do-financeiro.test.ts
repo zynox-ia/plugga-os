@@ -5,7 +5,7 @@ import type { CategoriaFinanceira, ContaCorrente } from "@plugga/shared";
 
 import {
   camposDaCategoria, camposDaConta, categoriaDasTarifas, comCategoriaSalva, comContaSalva, corpoDaCategoria, corpoDaConta, grupoEditavel,
-  mudancasDasTarifas, nomeDoGrupo, opcoesDasTarifas, podeCadastrarNoFinanceiro, saldoDigitado, saldoParaDigitar,
+  escolhasDasTarifas, mudancasDasTarifas, nomeDoGrupo, rascunhoSemAsSalvas, opcoesDasTarifas, podeCadastrarNoFinanceiro, saldoDigitado, saldoParaDigitar,
 } from "../app/lib/cadastros-do-financeiro.ts";
 import { categoriasAgrupadas, contagemDasCategorias, contasDaTela, detalheDaConta, saldoDaConta } from "../app/lib/configuracoes-do-financeiro.ts";
 
@@ -218,6 +218,34 @@ describe("categoria das tarifas bancárias por empresa", () => {
     assert.deepEqual(mudancasDasTarifas(plano, { plugga: u(21), waze: u(25) }), [{ id: u(21), corpo: { tarifaBancaria: true } }, { id: u(25), corpo: { tarifaBancaria: true } }]);
     assert.deepEqual(mudancasDasTarifas(plano, { plugga: "" }), [{ id: u(22), corpo: { tarifaBancaria: false } }]);
     assert.deepEqual(mudancasDasTarifas(plano, { plugga: u(22), waze: "" }), []);
+  });
+});
+
+describe("o rascunho das Preferências", () => {
+  const plano = [
+    categoria(51, "2.04.01", { nome: "Tarifas Plugga", tarifaBancaria: true }),
+    categoria(52, "2.04.02", { nome: "Serviços bancários Plugga" }),
+    categoria(53, "2.04.01", { empresa: "waze", nome: "Tarifas Waze" }),
+  ];
+
+  it("a tela mostra a escolha ainda não salva e, sem ela, a marca atual", () => {
+    assert.deepEqual(escolhasDasTarifas(plano, {}), { plugga: u(51), waze: "" });
+    assert.deepEqual(escolhasDasTarifas(plano, { plugga: u(52), waze: u(53) }), { plugga: u(52), waze: u(53) });
+  });
+
+  it("se a primeira empresa salva e a segunda falha, só a confirmada sai do rascunho e a outra continua pendente", () => {
+    const rascunho = { plugga: u(52), waze: u(53) };
+    // O PATCH da Plugga voltou; o da Waze falhou.
+    const salva = { ...categoria(52, "2.04.02", { nome: "Serviços bancários Plugga", tarifaBancaria: true }), desmarcada: { id: u(51), codigo: "2.04.01", nome: "Tarifas Plugga" } };
+    const depois = comCategoriaSalva(plano, salva);
+    const pendente = rascunhoSemAsSalvas(rascunho, [salva]);
+    assert.deepEqual(pendente, { waze: u(53) });
+    assert.deepEqual(escolhasDasTarifas(depois, pendente), { plugga: u(52), waze: u(53) });
+    assert.deepEqual(mudancasDasTarifas(depois, pendente), [{ id: u(53), corpo: { tarifaBancaria: true } }]);
+  });
+
+  it("desmarcar (\"nenhuma\") também sai do rascunho quando confirmado", () => {
+    assert.deepEqual(rascunhoSemAsSalvas({ plugga: "", waze: u(53) }, [{ ...plano[0]!, tarifaBancaria: false }]), { waze: u(53) });
   });
 });
 
