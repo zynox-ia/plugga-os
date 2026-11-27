@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { afterEach, describe, it } from "node:test";
+import { after, afterEach, before, describe, it } from "node:test";
 
 import { PATCH as editarCategoria } from "../app/api/financeiro/categorias/[id]/route.ts";
 import { POST as criarCategoria } from "../app/api/financeiro/categorias/route.ts";
@@ -10,6 +10,15 @@ import { POST as criarConta } from "../app/api/financeiro/contas-correntes/route
 const id = "00000000-0000-4000-8000-000000003401";
 const fetchOriginal = globalThis.fetch;
 const baseOriginal = process.env.API_INTERNAL_URL;
+
+// O proxyar confere o portão do Financeiro (PLU-336): aqui ele fica aberto, sem depender do NODE_ENV de quem roda.
+const ambiente = process.env as Record<string, string | undefined>;
+const nodeEnvOriginal = ambiente.NODE_ENV;
+before(() => { ambiente.NODE_ENV = "test"; });
+after(() => {
+  if (nodeEnvOriginal === undefined) delete ambiente.NODE_ENV;
+  else ambiente.NODE_ENV = nodeEnvOriginal;
+});
 
 afterEach(() => {
   globalThis.fetch = fetchOriginal;
