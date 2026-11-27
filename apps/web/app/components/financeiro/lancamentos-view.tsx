@@ -226,7 +226,7 @@ export function LancamentosView({ filtros, lista, quadro, resumo, alcance, ficha
         })}
       </div>}
       busca={campoDeBusca("barra")}
-      filtros={<div className={styles.filtros} role="group" aria-label="Filtros dos lançamentos">
+      filtros={<div className={`${styles.filtros} ${styles.filtrosTranslucidos}`} role="group" aria-label="Filtros dos lançamentos">
         {filtrosDaTela.map(([rotulo, filtro]) => <div key={rotulo} className={styles.filtro}>{filtro}</div>)}
         {filtrado ? <Button variant="secondary" size="sm" onClick={limpar}>Limpar</Button> : null}
         <Button variant="secondary" iconOnly icon={<Download size={16} />} aria-label="Baixar comprovantes do período (.zip)" title="Baixar comprovantes do período (.zip)" onClick={() => setBaixandoComprovantes(true)} />

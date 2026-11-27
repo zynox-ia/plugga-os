@@ -15,6 +15,10 @@
 @media (max-width: 720px) { .metricas { gap: 8px; } }
 .filtros { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
 .filtro { flex: none; }
+/* Experimento: fundo dos gatilhos de Situação, Empresa e Vencimento 30% mais transparente (só nesta tela). */
+.filtrosTranslucidos button[aria-haspopup="listbox"] { background: color-mix(in srgb, var(--ui-surface, #ffffff) 70%, transparent); }
+.filtrosTranslucidos button[aria-haspopup="listbox"]:hover,
+.filtrosTranslucidos button[aria-haspopup="listbox"][aria-expanded="true"] { background: color-mix(in srgb, var(--ui-subtle, #f3f7fb) 70%, transparent); }
 .teto { margin: 0; font-size: 12px; color: var(--ui-muted); }
 
 /* Com a barra presa, a página rola inteira: nada de rolagem interna nos cards, na lista ou no quadro. */
