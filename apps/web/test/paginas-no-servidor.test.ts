@@ -14,7 +14,16 @@ const arquivos = readdirSync(app, { recursive: true, withFileTypes: true })
   .filter((arquivo) => arquivo.isFile() && arquivo.name === "page.tsx")
   .map((arquivo) => join(arquivo.parentPath, arquivo.name));
 
-test("inventário de páginas exige regra e guarda no servidor, sem depender só do middleware", () => {
+test("inventário de páginas exige regra e guarda no servidor, sem depender só do middleware", (t) => {
+  // A regra de cada página é conferida com os portões abertos (Financeiro e Engenharia), sem depender
+  // de NODE_ENV nem das flags de quem roda o teste; fechados, o middleware responde por eles.
+  const ambiente = process.env as Record<string, string | undefined>;
+  const nodeEnvAnterior = ambiente.NODE_ENV;
+  ambiente.NODE_ENV = "test";
+  t.after(() => {
+    if (nodeEnvAnterior === undefined) delete ambiente.NODE_ENV;
+    else ambiente.NODE_ENV = nodeEnvAnterior;
+  });
   for (const arquivo of arquivos) {
     const rota = `/${relative(app, arquivo).replaceAll("\\", "/").replace(/\/?page\.tsx$/, "")}`;
     if (publicas.has(rota)) continue;

@@ -1,10 +1,22 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { after, describe, it } from "node:test";
 
 import { departamentos, telasPorDepartamento, type Acesso, type Tela } from "@plugga/shared";
 
-import { CONFIGURACOES, DEPARTAMENTOS, configuracoesParaAcesso, telasDoDepartamento } from "../app/lib/organizacao.ts";
-import { navGroupsForAccess, navIdForPathname, tituloForNavId } from "../app/lib/navigation.ts";
+/**
+ * O sitemap é o do portão aberto (Financeiro e Engenharia, lib/recursos.ts), e
+ * organizacao.ts monta os menus ao carregar: o ambiente é fixado ANTES de
+ * importar, sem depender de NODE_ENV nem das flags de quem roda o teste.
+ */
+const ambiente = process.env as Record<string, string | undefined>;
+const nodeEnvAnterior = ambiente.NODE_ENV;
+ambiente.NODE_ENV = "test";
+after(() => {
+  if (nodeEnvAnterior === undefined) delete ambiente.NODE_ENV;
+  else ambiente.NODE_ENV = nodeEnvAnterior;
+});
+const { CONFIGURACOES, DEPARTAMENTOS, configuracoesParaAcesso, telasDoDepartamento } = await import("../app/lib/organizacao.ts");
+const { navGroupsForAccess, navIdForPathname, tituloForNavId } = await import("../app/lib/navigation.ts");
 
 function rotulos(acesso?: Acesso) {
   return navGroupsForAccess(acesso ?? null)
