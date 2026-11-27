@@ -18,6 +18,7 @@ import {
   corpoDoRecebimento,
   eventosPorDia,
   problemaDoAnexo,
+  valorAtualDaCorrecao,
   textoDaAcao,
   resumoDaTrilhaDoLancamento,
   trilhaDoLancamento,
@@ -182,6 +183,21 @@ describe("ações da etapa", () => {
     assert.equal(corpoDaCorrecao({ valor: "3.800,00", motivo: "juros" }, "3800.00").porCampo.valor, "o valor é o mesmo de agora.");
     assert.equal(corpoDaCorrecao({ valor: "3.950,00", motivo: "  " }, "3800.00").porCampo.motivo, "diga por que o valor mudou.");
     assert.deepEqual(corpoDaCorrecao({ valor: "3.950,00", motivo: " Juros do atraso " }, "3800.00").corpo, { acao: "corrigir_valor", valor: "3950.00", motivo: "Juros do atraso" });
+  });
+
+  it("na cobrança recebida a menor, a correção parte do recebido: voltar ao nominal vale", () => {
+    // Cobrada por R$ 100 e recebida por R$ 90: a API corrige o valor recebido.
+    const recebida = { tipo: "entrada", etapa: "recebida", valor: "100.00", marcos: { recebido: { valor: "90.00" } } } as const;
+    assert.equal(valorAtualDaCorrecao(recebida), "90.00");
+    assert.deepEqual(corpoDaCorrecao({ valor: "100,00", motivo: "Pagou o restante" }, valorAtualDaCorrecao(recebida)).corpo, { acao: "corrigir_valor", valor: "100.00", motivo: "Pagou o restante" });
+    assert.equal(corpoDaCorrecao({ valor: "90,00", motivo: "x" }, valorAtualDaCorrecao(recebida)).porCampo.valor, "o valor é o mesmo de agora.");
+  });
+
+  it("fora da cobrança recebida, a correção segue partindo do valor do lançamento", () => {
+    assert.equal(valorAtualDaCorrecao({ tipo: "saida", etapa: "paga", valor: "450.00", marcos: { recebido: null } }), "450.00");
+    assert.equal(valorAtualDaCorrecao({ tipo: "entrada", etapa: "enviada", valor: "100.00", marcos: { recebido: null } }), "100.00");
+    // Recebida sem o registro do recebido (dado antigo): o valor do lançamento.
+    assert.equal(valorAtualDaCorrecao({ tipo: "entrada", etapa: "recebida", valor: "100.00", marcos: { recebido: null } }), "100.00");
   });
 
   it("corrigir o valor da cobrança com boleto gerado ou enviada pede o boleto novo", () => {

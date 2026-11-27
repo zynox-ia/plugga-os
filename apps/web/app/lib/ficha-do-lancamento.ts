@@ -277,6 +277,13 @@ export function corpoDaCorrecao(c: { valor: string; motivo: string }, atual: str
   return { porCampo, corpo: { acao: "corrigir_valor", valor: v.valor, motivo: c.motivo.trim() } };
 }
 
+/**
+ * O valor de que a correção parte: na cobrança recebida, o recebido, que é o que a API corrige
+ * (recebida a menor, dá para voltar ao nominal); no resto, o valor do lançamento.
+ */
+export const valorAtualDaCorrecao = (l: Pick<Lancamento, "tipo" | "etapa" | "valor"> & { marcos: { recebido: { valor: string } | null } }): string =>
+  l.tipo === "entrada" && l.etapa === "recebida" ? (l.marcos.recebido?.valor ?? l.valor) : l.valor;
+
 /** Na cobrança com o boleto gerado ou já enviada, corrigir o valor pede antes o boleto novo. */
 export const boletoNovoNaCorrecao = (l: Pick<Lancamento, "tipo" | "etapa">): boolean => l.tipo === "entrada" && (l.etapa === "boleto_gerado" || l.etapa === "enviada");
 

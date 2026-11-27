@@ -15,6 +15,7 @@ import {
   problemaDoAnexo,
   ROTULO_DA_FORMA,
   textoDaAcao,
+  valorAtualDaCorrecao,
   valorEmDigitacao,
 } from "../../lib/ficha-do-lancamento";
 import { detalheDaConta } from "../../lib/configuracoes-do-financeiro";
@@ -285,9 +286,11 @@ export function CorrigirValor({ l, aoVoltar, aoAgir, aoAnexar }: { l: Lancamento
   const [erros, setErros] = useState<Record<string, string>>({});
   const [enviando, setEnviando] = useState(false);
   const pedeBoleto = boletoNovoNaCorrecao(l);
+  // Na cobrança recebida, o recebido: é o que a API corrige (recebida a menor, volta ao nominal).
+  const valorAtual = valorAtualDaCorrecao(l);
   async function confirmar(evento: FormEvent) {
     evento.preventDefault();
-    const { corpo, porCampo } = corpoDaCorrecao({ valor, motivo }, l.valor);
+    const { corpo, porCampo } = corpoDaCorrecao({ valor, motivo }, valorAtual);
     if (pedeBoleto) {
       const problema = arquivo[0] ? problemaDoAnexo(arquivo[0]) : "anexe o boleto com o valor novo.";
       if (problema) porCampo.boleto = problema;
@@ -302,7 +305,7 @@ export function CorrigirValor({ l, aoVoltar, aoAgir, aoAnexar }: { l: Lancamento
     setEnviando(false);
     if (ok) aoVoltar();
   }
-  return <Dialog title={`Corrigir o valor de ${l.codigo}`} size="estreita" icon={<Pencil size={20} />} description={`Valor atual: ${valorEmReais(l.valor)}. A correção e o motivo ficam na linha do tempo.`} onClose={aoVoltar} cancelText="Voltar"
+  return <Dialog title={`Corrigir o valor de ${l.codigo}`} size="estreita" icon={<Pencil size={20} />} description={`Valor atual: ${valorEmReais(valorAtual)}. A correção e o motivo ficam na linha do tempo.`} onClose={aoVoltar} cancelText="Voltar"
     footer={<Button type="submit" form="form-corrigir-valor" icon={<Pencil size={15} />} disabled={enviando}>{enviando ? "Corrigindo…" : "Corrigir valor"}</Button>}>
     <form id="form-corrigir-valor" className="ui-dialog-form" onSubmit={(e) => void confirmar(e)} noValidate>
       <TextField label="Novo valor" required inputMode="decimal" prefix="R$" autoFocus value={valor} onChange={(e) => setValor(valorEmDigitacao(e.target.value))} placeholder="0,00" error={erros.valor} />
