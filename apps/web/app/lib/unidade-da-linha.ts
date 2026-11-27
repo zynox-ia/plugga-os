@@ -16,6 +16,11 @@ export type UnidadeDaLinha = {
   exibida: string;
   travada: boolean;
   conflito: { daLinha: string; doItem: string } | null;
+  /**
+   * A unidade do item não é conhecida aqui: a lista do estoque ainda carrega,
+   * ou o item não está nela (inativo, de outra empresa). A API confere no envio.
+   */
+  desconhecida: "carregando" | "fora_da_lista" | null;
   dica: string | null;
 };
 
@@ -23,14 +28,29 @@ export function unidadeDaLinha(
   linha: { unidade: string; estoqueId: string | null },
   itensDoEstoque: readonly { id: string; unidade: string }[] | null,
 ): UnidadeDaLinha {
-  if (!linha.estoqueId) return { exibida: linha.unidade, travada: false, conflito: null, dica: null };
-  const doItem = itensDoEstoque?.find((i) => i.id.toLowerCase() === linha.estoqueId!.toLowerCase())?.unidade ?? null;
-  if (doItem && unidadeDaLinhaConflita(linha.unidade, doItem)) {
-    const daLinha = linha.unidade.trim();
-    return { exibida: linha.unidade, travada: true, conflito: { daLinha, doItem }, dica: `Esta linha está em ${daLinha}, mas o item do estoque é controlado em ${doItem}.` };
+  if (!linha.estoqueId) return { exibida: linha.unidade, travada: false, conflito: null, desconhecida: null, dica: null };
+  if (itensDoEstoque === null) return { exibida: linha.unidade, travada: true, conflito: null, desconhecida: "carregando", dica: "Carregando a unidade do item do estoque…" };
+  const doItem = itensDoEstoque.find((i) => i.id.toLowerCase() === linha.estoqueId!.toLowerCase())?.unidade ?? null;
+  if (doItem === null) {
+    return { exibida: linha.unidade, travada: true, conflito: null, desconhecida: "fora_da_lista", dica: "O item do estoque não está entre os ativos desta empresa: a unidade é conferida ao salvar." };
   }
-  const exibida = linha.unidade.trim() ? linha.unidade : doItem ?? linha.unidade;
-  return { exibida, travada: true, conflito: null, dica: `Na unidade do item do estoque (${doItem ?? exibida}). Desvincule para mudar.` };
+  if (unidadeDaLinhaConflita(linha.unidade, doItem)) {
+    const daLinha = linha.unidade.trim();
+    return { exibida: linha.unidade, travada: true, conflito: { daLinha, doItem }, desconhecida: null, dica: `Esta linha está em ${daLinha}, mas o item do estoque é controlado em ${doItem}.` };
+  }
+  const exibida = linha.unidade.trim() ? linha.unidade : doItem;
+  return { exibida, travada: true, conflito: null, desconhecida: null, dica: `Na unidade do item do estoque (${doItem}). Desvincule para mudar.` };
+}
+
+/**
+ * A recusa da API para uma linha. O servidor indexa as linhas na ordem em que
+ * foram enviadas (`itens.<n>.unidade`), não na do formulário: `enviadas` é a
+ * lista das chaves das linhas no último envio.
+ */
+export function erroDaLinha(porCampo: Readonly<Record<string, string | undefined>> | undefined, enviadas: readonly number[], chave: number): string | null {
+  const n = enviadas.indexOf(chave);
+  if (!porCampo || n < 0) return null;
+  return porCampo[`itens.${n}.unidade`] || porCampo[`itens.${n}.itemDeEstoqueId`] || null;
 }
 
 /** A unidade que vai para a API: a da própria linha, sem conversão (vazia vira null e o servidor adota a do item). */
@@ -50,5 +70,8 @@ export function corrigirParaAUnidadeDoItem(conflito: { doItem: string }): { unid
 
 /** Bloqueia o envio dos itens enquanto uma linha vinculada estiver em outra unidade. */
 export function problemaDaUnidade(u: UnidadeDaLinha): string | null {
-  return u.conflito ? `a linha está em ${u.conflito.daLinha} e o item do estoque em ${u.conflito.doItem}: corrija a quantidade para ${u.conflito.doItem} ou desvincule o item.` : null;
+  if (u.conflito) return `a linha está em ${u.conflito.daLinha} e o item do estoque em ${u.conflito.doItem}: corrija a quantidade para ${u.conflito.doItem} ou desvincule o item.`;
+  // Sem a unidade do item, os itens não vão: espera a lista do estoque.
+  if (u.desconhecida === "carregando") return "aguarde a unidade do item do estoque carregar e salve de novo.";
+  return null;
 }

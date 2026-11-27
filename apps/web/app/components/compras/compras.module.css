@@ -245,6 +245,14 @@
   min-width: 0;
 }
 
+/* A recusa da API para a linha, embaixo dela. */
+.erroDaLinha {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--ui-danger);
+}
+
 .resultados {
   margin: 4px 0 0;
   padding: 6px;

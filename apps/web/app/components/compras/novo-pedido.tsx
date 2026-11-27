@@ -7,7 +7,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { enviar, type ErroDoFormulario } from "../../lib/clientes";
 import { decimalDigitado, hojeEmManaus, problemaDoPrazo, quantidadeDigitada } from "../../lib/compras";
 import { camposDoPedidoAlterados } from "../../lib/ficha-do-pedido";
-import { corrigirParaAUnidadeDoItem, problemaDaUnidade, unidadeAoVincular, unidadeDaLinha, unidadeParaEnviar } from "../../lib/unidade-da-linha";
+import { corrigirParaAUnidadeDoItem, erroDaLinha, problemaDaUnidade, unidadeAoVincular, unidadeDaLinha, unidadeParaEnviar } from "../../lib/unidade-da-linha";
 import { useItensDeEstoque, VinculoComEstoque } from "../suprimentos/ligacao-com-estoque";
 import { Alert, Button, DatePicker, Dialog, Heading, TextField, TextareaField } from "../ui";
 import { displayCurrency } from "../ui/currency-value";
@@ -56,6 +56,7 @@ export function NovoPedido({ opcoes, pedido, aoCancelar, aoSalvar }: {
   const formRef = useRef<HTMLFormElement>(null);
   const proximaChave = useRef(itens.length + 1);
   const focar = useRef(false);
+  const [linhasEnviadas, setLinhasEnviadas] = useState<number[]>([]);
   const hoje = hojeEmManaus();
   const estoque = useItensDeEstoque(empresa);
 
@@ -104,6 +105,8 @@ export function NovoPedido({ opcoes, pedido, aoCancelar, aoSalvar }: {
       const conflitos = Object.fromEntries(preenchidos.flatMap((i) => { const p = problemaDaUnidade(unidadeDaLinha(i, estoque.itens)); return p ? [[`item-${i.chave}-quantidade`, p]] : []; }));
       if (Object.keys(conflitos).length) { focar.current = true; setErro({ mensagem: "Confira os campos destacados.", porCampo: conflitos }); return; }
     }
+    // O servidor aponta a linha pelo índice no envio: guarda a ordem para mostrar a recusa na linha certa.
+    setLinhasEnviadas(preenchidos.map((i) => i.chave));
     setEnviando(true); setErro(null);
     const r = await enviar<PedidoDeCompra>(pedido ? `/api/suprimentos/compras/pedidos/${pedido.id}` : "/api/suprimentos/compras/pedidos", pedido ? "PATCH" : "POST", envio);
     setEnviando(false);
@@ -132,20 +135,23 @@ export function NovoPedido({ opcoes, pedido, aoCancelar, aoSalvar }: {
           {itens.map((i, n) => {
             // Vinculada ao estoque, a linha usa a unidade do item e o campo fica travado; em outra unidade, é conflito.
             const u = unidadeDaLinha(i, estoque.itens);
+            // A recusa da API para esta linha (pelo índice no envio), mostrada nela mesma.
+            const recusa = erroDaLinha(erro?.porCampo, linhasEnviadas, i.chave);
             return <div key={i.chave} className={styles.item} role="group" aria-label={`Item ${n + 1}`}>
               <TextField aria-label={`Descrição do item ${n + 1}`} maxLength={300} value={i.descricao} onChange={(ev) => alterarItem(i.chave, { descricao: ev.target.value })} placeholder="Ex.: Módulo fotovoltaico 550 W" error={e(`item-${i.chave}-descricao`)} />
               <TextField aria-label={`Quantidade do item ${n + 1}`} inputMode="decimal" value={i.quantidade} onChange={(ev) => alterarItem(i.chave, { quantidade: ev.target.value })} placeholder={u.travada && !u.conflito ? `Qtd. (${u.exibida})` : "Qtd."} error={e(`item-${i.chave}-quantidade`)} />
               <div className="ui-field"><select className="ui-input" aria-label={`Unidade do item ${n + 1}`} title={u.dica ?? undefined} value={u.exibida} disabled={u.travada}
-                aria-invalid={u.conflito || e(`itens.${n}.unidade`) ? true : undefined} onChange={(ev) => alterarItem(i.chave, { unidade: ev.target.value })}>
+                aria-invalid={u.conflito || recusa ? true : undefined} onChange={(ev) => alterarItem(i.chave, { unidade: ev.target.value })}>
                 {[...new Set([...UNIDADES, u.exibida].filter(Boolean))].map((x) => <option key={x} value={x}>{x}</option>)}
               </select>{u.dica ? <span className="sr-only">{u.dica}</span> : null}</div>
               <Button variant="secondary" size="sm" iconOnly icon={<X size={14} />} aria-label={`Remover item ${n + 1}`} disabled={itens.length === 1 || !itensEditaveis} onClick={() => setItens((atuais) => atuais.filter((x) => x.chave !== i.chave))} />
-              <VinculoComEstoque numero={n + 1} empresa={empresa} itens={estoque.itens} indisponivel={estoque.indisponivel} valor={i.estoqueId} disabled={!itensEditaveis} erro={e(`itens.${n}.itemDeEstoqueId`)}
+              <VinculoComEstoque numero={n + 1} empresa={empresa} itens={estoque.itens} indisponivel={estoque.indisponivel} valor={i.estoqueId} disabled={!itensEditaveis} erro={e(`itens.${linhasEnviadas.indexOf(i.chave)}.itemDeEstoqueId`)}
                 aoMudar={(item) => alterarItem(i.chave, item ? { estoqueId: item.id, ...(i.descricao.trim() ? {} : { descricao: item.nome }), ...unidadeAoVincular(i, item) } : { estoqueId: null })} />
               {u.conflito && itensEditaveis ? <div className={styles.conflitoDaUnidade} role="status">
                 <p>{u.dica} Para atender pelo estoque, a quantidade tem de estar em {u.conflito.doItem}.</p>
                 <Button variant="secondary" size="sm" onClick={() => alterarItem(i.chave, corrigirParaAUnidadeDoItem(u.conflito!))}>Usar {u.conflito.doItem} e digitar a quantidade</Button>
               </div> : null}
+              {recusa && !u.conflito ? <p className={styles.erroDaLinha} role="alert">Erro: {recusa}</p> : null}
             </div>;
           })}
         </fieldset>

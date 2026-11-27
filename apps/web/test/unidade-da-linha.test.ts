@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { corrigirParaAUnidadeDoItem, problemaDaUnidade, unidadeAoVincular, unidadeDaLinha, unidadeParaEnviar } from "../app/lib/unidade-da-linha.ts";
+import { corrigirParaAUnidadeDoItem, erroDaLinha, problemaDaUnidade, unidadeAoVincular, unidadeDaLinha, unidadeParaEnviar } from "../app/lib/unidade-da-linha.ts";
 import { camposDoPedidoAlterados } from "../app/lib/ficha-do-pedido.ts";
 
 const ID = "11111111-1111-4111-8111-111111111111";
@@ -9,21 +9,39 @@ const doEstoque = [{ id: ID, unidade: "m" }];
 
 describe("Compras: unidade da linha vinculada ao estoque (PLU-328)", () => {
   it("linha sem vínculo tem unidade livre", () => {
-    assert.deepEqual(unidadeDaLinha({ unidade: "cx", estoqueId: null }, doEstoque), { exibida: "cx", travada: false, conflito: null, dica: null });
+    assert.deepEqual(unidadeDaLinha({ unidade: "cx", estoqueId: null }, doEstoque), { exibida: "cx", travada: false, conflito: null, desconhecida: null, dica: null });
   });
 
   it("vinculada na unidade do item (ou sem unidade): mostra a do item e trava o campo", () => {
-    assert.deepEqual(unidadeDaLinha({ unidade: "m", estoqueId: ID }, doEstoque), { exibida: "m", travada: true, conflito: null, dica: "Na unidade do item do estoque (m). Desvincule para mudar." });
+    assert.deepEqual(unidadeDaLinha({ unidade: "m", estoqueId: ID }, doEstoque), { exibida: "m", travada: true, conflito: null, desconhecida: null, dica: "Na unidade do item do estoque (m). Desvincule para mudar." });
     assert.equal(unidadeDaLinha({ unidade: "", estoqueId: ID }, doEstoque).exibida, "m");
     assert.equal(unidadeDaLinha({ unidade: "m", estoqueId: ID.toUpperCase() }, doEstoque).conflito, null);
   });
 
   it("linha antiga em outra unidade: conflito, sem trocar a unidade em silêncio (revisão leva 9)", () => {
     const u = unidadeDaLinha({ unidade: "cx", estoqueId: ID }, doEstoque);
-    assert.deepEqual(u, { exibida: "cx", travada: true, conflito: { daLinha: "cx", doItem: "m" }, dica: "Esta linha está em cx, mas o item do estoque é controlado em m." });
+    assert.deepEqual(u, { exibida: "cx", travada: true, conflito: { daLinha: "cx", doItem: "m" }, desconhecida: null, dica: "Esta linha está em cx, mas o item do estoque é controlado em m." });
     assert.equal(problemaDaUnidade(u), "a linha está em cx e o item do estoque em m: corrija a quantidade para m ou desvincule o item.");
     // Mesmo critério do servidor: caixa conta.
     assert.ok(unidadeDaLinha({ unidade: "M", estoqueId: ID }, doEstoque).conflito);
+  });
+
+  it("sem a unidade do item, não envia enquanto a lista carrega; fora da lista, a API confere (revisão leva 13)", () => {
+    const carregando = unidadeDaLinha({ unidade: "cx", estoqueId: ID }, null);
+    assert.equal(carregando.desconhecida, "carregando");
+    assert.equal(problemaDaUnidade(carregando), "aguarde a unidade do item do estoque carregar e salve de novo.");
+    const fora = unidadeDaLinha({ unidade: "cx", estoqueId: "22222222-2222-4222-8222-222222222222" }, doEstoque);
+    assert.equal(fora.desconhecida, "fora_da_lista");
+    assert.equal(problemaDaUnidade(fora), null);
+  });
+
+  it("a recusa da API aparece na linha certa, pelo índice no envio", () => {
+    const porCampo = { "itens.1.unidade": "A linha “Cabo” está em cx, mas o item EST-0001 do estoque é controlado em m." };
+    // Enviadas as linhas de chave 3 e 7 (a 5 estava vazia): o índice 1 é a de chave 7.
+    assert.equal(erroDaLinha(porCampo, [3, 7], 7), porCampo["itens.1.unidade"]);
+    assert.equal(erroDaLinha(porCampo, [3, 7], 3), null);
+    assert.equal(erroDaLinha(porCampo, [3, 7], 5), null);
+    assert.equal(erroDaLinha(undefined, [3, 7], 7), null);
   });
 
   it("corrigir troca para a unidade do item e pede a quantidade de novo", () => {
