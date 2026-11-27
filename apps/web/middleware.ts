@@ -100,6 +100,36 @@ function avisoDeIndisponivelComCsp(request: NextRequest): NextResponse {
 }
 
 /**
+ * Página do Financeiro com o portão fechado (PLU-336): 404 do próprio
+ * middleware, como resposta direta. O Next devolve o status de uma resposta
+ * dessas como está; num rewrite ou na continuação, o status sairia do render,
+ * e uma resposta já em streaming iria com 200. Sem script, então a CSP fecha
+ * tudo menos o estilo inline. Vale para navegação direta, RSC e prefetch (o
+ * App Router, sem payload RSC, recarrega o endereço e mostra esta página).
+ */
+function naoEncontrado(): NextResponse {
+  const html = `<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
+<title>Página não encontrada · Plugga OS</title>
+<style>
+:root{color-scheme:light dark;--fundo:#f6f6f4;--texto:#1d1d1b;--suave:#6b6b66;--borda:#d9d9d4}
+@media (prefers-color-scheme:dark){:root{--fundo:#161615;--texto:#ececea;--suave:#a3a39e;--borda:#3a3a37}}
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--fundo);color:var(--texto);font:400 16px/1.5 system-ui,sans-serif;padding:0 16px}
+main{max-width:28rem;text-align:center}h1{font-size:1.5rem;font-weight:500;margin:0 0 .5rem}p{color:var(--suave);margin:0 0 1.5rem}
+a{display:inline-block;color:inherit;border:1px solid var(--borda);border-radius:8px;padding:.5rem 1rem;text-decoration:none;font-weight:500}a:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+</style></head>
+<body><main><p>Erro 404</p><h1>Página não encontrada</h1><p>O endereço não existe ou não está disponível.</p><a href="/">Voltar ao início</a></main></body></html>`;
+  return new NextResponse(html, {
+    status: 404,
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store",
+      "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+    },
+  });
+}
+
+/**
  * Gates every app route behind a real session (ADR-0008), replacing the former
  * dev-header stub as the default path. /login and the token-based invite/reset
  * pages stay public so a signed-out visitor can always reach them.
@@ -137,9 +167,12 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     // /auth/me respondeu 200 fora do contrato (web e API em versões diferentes?): não desloga, mas avisa no log.
     console.warn("middleware: /auth/me respondeu fora do contrato; mostrando API indisponível");
   }
-  // Com o Financeiro fechado, a página segue (logado) para o layout dele responder 404, como se não existisse (PLU-336).
-  const podeAbrir = (usuario: SessionUser) => fechadaPeloPortaoDoFinanceiro(pathname) || podeAbrirPagina(usuario.acesso, pathname);
+  // Com o Financeiro fechado, a página não existe: logado, 404 aqui mesmo, sem ir ao início (PLU-336).
+  // Sem sessão continua indo ao login, e com a API fora, ao aviso.
+  const fechada = fechadaPeloPortaoDoFinanceiro(pathname);
+  const podeAbrir = (usuario: SessionUser) => fechada || podeAbrirPagina(usuario.acesso, pathname);
   const decisao = decidirPagina(pathname, leitura, podeAbrir, request.nextUrl.search);
+  if (decisao.acao === "seguir" && fechada) return naoEncontrado();
 
   switch (decisao.acao) {
     case "inicio":

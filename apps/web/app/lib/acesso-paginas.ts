@@ -78,8 +78,9 @@ function doFinanceiro(segmentos: string[]): boolean {
 
 /**
  * Página do Financeiro com o portão fechado (lib/recursos.ts): não existe para
- * ninguém. O middleware a deixa seguir para o layout do Financeiro responder
- * 404, em vez de mandar ao início como faz com quem não tem acesso (PLU-336).
+ * ninguém. O middleware responde 404 antes de renderizar, em vez de mandar
+ * ao início como faz com quem não tem acesso; o `notFound()` do layout fica
+ * como segunda barreira (PLU-336).
  */
 export function fechadaPeloPortaoDoFinanceiro(pathname: string, ambiente?: AmbienteDosRecursos): boolean {
   return segmentosCanonicos(pathname)[0] === "financeiro" && !financeiroHabilitado(ambiente);

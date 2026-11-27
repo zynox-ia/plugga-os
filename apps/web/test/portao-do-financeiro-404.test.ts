@@ -7,8 +7,9 @@ import { describe, it } from "node:test";
  * Next só manda o status 404 se a resposta ainda não começou a ser transmitida:
  * um `loading.tsx`, um `template.tsx`, um `<Suspense>` ou um `generateMetadata`
  * acima do layout abriria o streaming antes, e a rota fechada sairia com 200.
- * Este teste trava essa condição; o status HTTP de verdade é conferido num
- * build fechado (roteiro no relatório da PLU-336).
+ * O 404 que vale vem antes, do próprio middleware (middleware-sessao.test.ts);
+ * este teste guarda a segunda barreira, o layout. O status HTTP de verdade é
+ * conferido num build fechado (roteiro no relatório da PLU-336).
  */
 const app = new URL("../app/", import.meta.url);
 const ler = (caminho: string) => readFileSync(new URL(caminho, app), "utf8");
@@ -16,7 +17,7 @@ const ler = (caminho: string) => readFileSync(new URL(caminho, app), "utf8");
 describe("Financeiro fechado: nada abre o streaming antes do notFound() do layout", () => {
   it("sem loading.tsx nem template.tsx na raiz ou no Financeiro", () => {
     for (const pasta of ["", "financeiro/"]) {
-      for (const arquivo of ["loading.tsx", "loading.ts", "loading.jsx", "template.tsx", "template.ts", "template.jsx"]) {
+      for (const arquivo of ["tsx", "ts", "jsx", "js"].flatMap((extensao) => [`loading.${extensao}`, `template.${extensao}`])) {
         assert.equal(existsSync(new URL(`${pasta}${arquivo}`, app)), false, `${pasta}${arquivo}`);
       }
     }

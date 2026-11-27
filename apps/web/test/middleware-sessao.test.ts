@@ -176,15 +176,26 @@ describe("middleware: API fora do ar não desloga (PLU-343)", () => {
 describe("middleware: Financeiro fechado responde 404 (PLU-336)", () => {
   const SEM_FINANCEIRO = sessionUserSchema.parse({ ...USUARIO, acesso: { plataforma: null, departamentos: [{ departamento: "suprimentos", nivel: "membro" }] } });
 
-  it("logado, com o portão fechado: segue até o layout do Financeiro, que responde 404, em vez de ir ao início", async () => {
+  it("logado, com o portão fechado: o próprio middleware responde 404, antes de renderizar, em vez de ir ao início", async () => {
+    const paginas = ["/financeiro/lancamentos", "/financeiro", "/financeiro/", "/financeiro/xyz/abc?aba=1", "/%66inanceiro/lancamentos", "/Financeiro/conciliacao"];
+    // Navegação direta, navegação do App Router (RSC) e prefetch.
+    const tipos: Record<string, string>[] = [{}, { rsc: "1" }, { rsc: "1", "next-router-prefetch": "1" }];
     for (const portao of FECHADOS) {
       await comPortao(portao, async () => {
-        for (const [usuario, caminho] of [[USUARIO, "/financeiro/lancamentos"], [USUARIO, "/financeiro"], [SEM_FINANCEIRO, "/financeiro/conciliacao"]] as const) {
-          apiResponde(Response.json(usuario));
-          const resposta = await middleware(pedir(caminho));
-          const cenario = `${caminho} ${JSON.stringify(portao)}`;
-          assert.equal(vaiAoInicio(resposta), false, cenario);
-          assert.deepEqual(resultado(resposta), { tipo: "seguir" }, cenario);
+        for (const usuario of [USUARIO, SEM_FINANCEIRO]) {
+          for (const caminho of paginas) {
+            for (const extras of tipos) {
+              apiResponde(Response.json(usuario));
+              const resposta = await middleware(new CriarRequest(`http://localhost:3000${caminho}`, { headers: { cookie: "sessao=abc", ...extras } }));
+              const cenario = `${caminho} ${JSON.stringify(extras)} ${JSON.stringify(portao)}`;
+              // Resposta direta: nem continuação, nem rewrite, nem redirect (o Next devolve o status como está).
+              assert.equal(resposta.status, 404, cenario);
+              for (const interno of ["x-middleware-next", "x-middleware-rewrite", "location"]) assert.equal(resposta.headers.get(interno), null, `${interno} ${cenario}`);
+              assert.equal(resposta.headers.get("Cache-Control"), "no-store", cenario);
+              assert.match(resposta.headers.get("content-type") ?? "", /^text\/html/, cenario);
+              assert.match(await resposta.text(), /Página não encontrada/, cenario);
+            }
+          }
         }
       });
     }
